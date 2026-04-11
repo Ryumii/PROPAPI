@@ -1,4 +1,4 @@
-# ChiScan API — 土地調査 API
+# REAPI — 土地調査 API
 ## Product Requirements Document
 **Version 1.1** | 2026年4月  
 ステータス: Draft — 社内検討用  
