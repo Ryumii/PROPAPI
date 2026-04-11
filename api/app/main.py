@@ -2,7 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.routers.hazard import router as hazard_router
 from app.routers.health import router as health_router
+from app.routers.inspect import router as inspect_router
+from app.routers.zoning import router as zoning_router
 
 app = FastAPI(
     title="REAPI",
@@ -21,3 +24,6 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(inspect_router)
+app.include_router(hazard_router)
+app.include_router(zoning_router)
