@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
   deploy-api:
     name: "API → Azure"
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
 
