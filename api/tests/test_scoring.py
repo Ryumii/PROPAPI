@@ -11,7 +11,6 @@ from app.services.scoring import (
 from app.services.spatial import (
     FloodResult,
     LandslideResult,
-    LiquefactionResult,
     SpatialQueryResult,
     TsunamiResult,
 )
@@ -69,23 +68,9 @@ class TestScoreTsunami:
 
 
 class TestScoreLiquefaction:
-    def test_none_returns_zero(self) -> None:
-        assert score_liquefaction(None) == 0
-
-    def test_risk_rank_used_when_present(self) -> None:
-        assert score_liquefaction(LiquefactionResult(risk_rank=4, pl_value=1.0)) == 4
-
-    def test_pl_high(self) -> None:
-        assert score_liquefaction(LiquefactionResult(pl_value=20.0)) == 5
-
-    def test_pl_medium(self) -> None:
-        assert score_liquefaction(LiquefactionResult(pl_value=12.5)) == 4
-
-    def test_pl_low(self) -> None:
-        assert score_liquefaction(LiquefactionResult(pl_value=3.0)) == 2
-
-    def test_pl_unknown(self) -> None:
-        assert score_liquefaction(LiquefactionResult(pl_value=None)) == 2
+    def test_always_returns_none(self) -> None:
+        """Liquefaction score is unavailable (external map link only)."""
+        assert score_liquefaction() is None
 
 
 class TestCalculateScores:
@@ -93,29 +78,29 @@ class TestCalculateScores:
         r = calculate_scores(SpatialQueryResult())
         assert r.composite_score == 0
         assert r.composite_level == "none"
+        assert r.liquefaction_score is None
 
     def test_mixed_scores(self) -> None:
         spatial = SpatialQueryResult(
             flood=FloodResult(depth_rank=2, depth_range="0.5m〜1.0m"),
             landslide=None,
             tsunami=None,
-            liquefaction=LiquefactionResult(pl_value=12.5),
         )
         r = calculate_scores(spatial)
-        # flood=2*0.30=0.6, landslide=0*0.25=0, tsunami=0*0.20=0, liquefaction=4*0.25=1.0
+        # flood=2*0.40=0.8, landslide=0*0.30=0, tsunami=0*0.30=0
         assert r.flood_score == 2
-        assert r.liquefaction_score == 4
-        assert r.composite_score == 1.6
-        assert r.composite_level == "low"
+        assert r.liquefaction_score is None
+        assert r.composite_score == 0.8
+        assert r.composite_level == "very_low"
 
     def test_high_risk(self) -> None:
         spatial = SpatialQueryResult(
             flood=FloodResult(depth_rank=5, depth_range="5.0m〜"),
             landslide=LandslideResult(zone_type="特別警戒区域"),
             tsunami=TsunamiResult(depth_m=6.0),
-            liquefaction=LiquefactionResult(risk_rank=5),
         )
         r = calculate_scores(spatial)
+        # flood=5*0.40=2.0, landslide=5*0.30=1.5, tsunami=5*0.30=1.5 = 5.0
         assert r.composite_score == 5.0
         assert r.composite_level == "very_high"
         assert "非常に高い" in r.composite_description

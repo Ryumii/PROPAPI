@@ -30,11 +30,22 @@ class TsunamiDetail(BaseModel):
 
 
 class LiquefactionDetail(BaseModel):
-    risk_level: str = Field(..., examples=["medium"])
-    risk_score: int = Field(..., ge=0, le=5)
-    pl_value: float | None = Field(None, examples=[12.5])
-    source: str = Field(..., examples=["東京都 液状化予測図"])
-    source_updated_at: str | None = None
+    risk_level: str = Field(default="unavailable", examples=["unavailable"])
+    risk_score: int | None = Field(default=None, ge=0, le=5)
+    data_available: bool = Field(default=False)
+    map_url: str | None = Field(
+        None,
+        examples=["https://www.j-shis.bosai.go.jp/map/?lat=35.6595&lon=139.7004&zoom=14"],
+        description="該当地区の液状化リスク地図へのリンク",
+    )
+    source: str = Field(
+        default="J-SHIS 地震ハザードステーション（防災科学技術研究所）",
+        examples=["J-SHIS 地震ハザードステーション（防災科学技術研究所）"],
+    )
+    note: str = Field(
+        default="液状化リスクの詳細は地図リンクからご確認ください",
+        description="データが外部参照であることの説明",
+    )
 
 
 class CompositeScore(BaseModel):

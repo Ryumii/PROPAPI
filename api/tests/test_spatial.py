@@ -3,11 +3,12 @@
 from app.services.spatial import (
     FloodResult,
     LandslideResult,
-    LiquefactionResult,
+    LiquefactionMapInfo,
     SpatialQueryResult,
     TsunamiResult,
     ZoningResult,
     _point_wkt,
+    build_liquefaction_map_url,
 )
 
 
@@ -36,10 +37,16 @@ class TestDataclassDefaults:
         r = TsunamiResult()
         assert r.depth_m is None
 
-    def test_liquefaction_result_defaults(self) -> None:
-        r = LiquefactionResult()
-        assert r.pl_value is None
-        assert r.risk_rank is None
+    def test_liquefaction_map_info_defaults(self) -> None:
+        r = LiquefactionMapInfo()
+        assert r.map_url == ""
+        assert "J-SHIS" in r.source_name
+
+    def test_liquefaction_map_url_builder(self) -> None:
+        url = build_liquefaction_map_url(35.6595, 139.7004)
+        assert "lat=35.6595" in url
+        assert "lon=139.7004" in url
+        assert "j-shis.bosai.go.jp" in url
 
     def test_zoning_result_defaults(self) -> None:
         r = ZoningResult()

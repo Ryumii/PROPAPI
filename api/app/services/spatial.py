@@ -10,7 +10,7 @@ from geoalchemy2.functions import ST_Contains
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.hazard import HazardFlood, HazardLandslide, HazardLiquefaction, HazardTsunami
+from app.models.hazard import HazardFlood, HazardLandslide, HazardTsunami
 from app.models.zoning import ZoningDistrict
 
 logger = logging.getLogger(__name__)
@@ -48,11 +48,19 @@ class TsunamiResult:
 
 
 @dataclass
-class LiquefactionResult:
-    pl_value: float | None = None
-    risk_rank: int | None = None
-    source_name: str = "東京都 液状化予測図"
-    source_updated_at: str | None = None
+class LiquefactionMapInfo:
+    """Liquefaction data is not available as structured polygons.
+
+    Instead we provide a link to the J-SHIS hazard map for the queried location.
+    """
+
+    map_url: str = ""
+    source_name: str = "J-SHIS 地震ハザードステーション（防災科学技術研究所）"
+
+
+def build_liquefaction_map_url(lat: float, lng: float) -> str:
+    """Build a J-SHIS map URL centred on the given coordinates."""
+    return f"https://www.j-shis.bosai.go.jp/map/?lat={lat}&lon={lng}&zoom=14&transparent=1&layer=liquefaction"
 
 
 @dataclass
@@ -74,7 +82,7 @@ class SpatialQueryResult:
     flood: FloodResult | None = None
     landslide: LandslideResult | None = None
     tsunami: TsunamiResult | None = None
-    liquefaction: LiquefactionResult | None = None
+    liquefaction: LiquefactionMapInfo | None = None
     zoning: ZoningResult | None = None
 
 
@@ -134,22 +142,9 @@ async def _query_tsunami(db: AsyncSession, point_wkt: str) -> TsunamiResult | No
     )
 
 
-async def _query_liquefaction(db: AsyncSession, point_wkt: str) -> LiquefactionResult | None:
-    stmt = (
-        select(HazardLiquefaction)
-        .where(ST_Contains(HazardLiquefaction.geom, func.ST_GeomFromEWKT(point_wkt)))
-        .limit(1)
-    )
-    result = await db.execute(stmt)
-    row = result.scalar_one_or_none()
-    if row is None:
-        return None
-    return LiquefactionResult(
-        pl_value=float(row.pl_value) if row.pl_value is not None else None,
-        risk_rank=row.risk_rank,
-        source_name=row.source.name if row.source else "東京都 液状化予測図",
-        source_updated_at=row.source.last_updated_at if row.source else None,
-    )
+def _build_liquefaction_info(lat: float, lng: float) -> LiquefactionMapInfo:
+    """Build a map-link reference for liquefaction (no DB query)."""
+    return LiquefactionMapInfo(map_url=build_liquefaction_map_url(lat, lng))
 
 
 async def _query_zoning(db: AsyncSession, point_wkt: str) -> ZoningResult | None:
@@ -197,7 +192,8 @@ async def spatial_query(
         tasks.append(("flood", _query_flood(db, point)))
         tasks.append(("landslide", _query_landslide(db, point)))
         tasks.append(("tsunami", _query_tsunami(db, point)))
-        tasks.append(("liquefaction", _query_liquefaction(db, point)))
+        # Liquefaction: map link only (no DB query)
+        result.liquefaction = _build_liquefaction_info(lat, lng)
     if include_zoning:
         tasks.append(("zoning", _query_zoning(db, point)))
 

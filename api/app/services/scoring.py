@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from app.services.spatial import (
     FloodResult,
     LandslideResult,
-    LiquefactionResult,
     SpatialQueryResult,
     TsunamiResult,
 )
@@ -25,10 +24,9 @@ from app.services.spatial import (
 # Can be overridden via settings / config file in the future.
 
 RISK_WEIGHTS: dict[str, float] = {
-    "flood": 0.30,
-    "landslide": 0.25,
-    "tsunami": 0.20,
-    "liquefaction": 0.25,
+    "flood": 0.40,
+    "landslide": 0.30,
+    "tsunami": 0.30,
 }
 
 LEVEL_LABELS: dict[int, str] = {
@@ -87,25 +85,9 @@ def score_tsunami(result: TsunamiResult | None) -> int:
     return 1
 
 
-def score_liquefaction(result: LiquefactionResult | None) -> int:
-    if result is None:
-        return 0
-    # Prefer risk_rank if already classified
-    if result.risk_rank is not None:
-        return max(0, min(5, result.risk_rank))
-    # Otherwise derive from PL value
-    pl = result.pl_value
-    if pl is None:
-        return 2  # zone exists but value unknown
-    if pl >= 15:
-        return 5
-    if pl >= 10:
-        return 4
-    if pl >= 5:
-        return 3
-    if pl >= 2:
-        return 2
-    return 1
+def score_liquefaction() -> int | None:
+    """Liquefaction score is unavailable (external map link only)."""
+    return None
 
 
 def _level_for_score(score: int) -> str:
@@ -120,7 +102,7 @@ class ScoringResult:
     flood_score: int
     landslide_score: int
     tsunami_score: int
-    liquefaction_score: int
+    liquefaction_score: int | None  # None = data unavailable
     composite_score: float
     composite_level: str
     composite_description: str
@@ -131,13 +113,12 @@ def calculate_scores(spatial: SpatialQueryResult) -> ScoringResult:
     fs = score_flood(spatial.flood)
     ls = score_landslide(spatial.landslide)
     ts = score_tsunami(spatial.tsunami)
-    lq = score_liquefaction(spatial.liquefaction)
+    lq = score_liquefaction()  # always None — external map link
 
     weighted = (
         fs * RISK_WEIGHTS["flood"]
         + ls * RISK_WEIGHTS["landslide"]
         + ts * RISK_WEIGHTS["tsunami"]
-        + lq * RISK_WEIGHTS["liquefaction"]
     )
     composite = round(weighted, 1)
 

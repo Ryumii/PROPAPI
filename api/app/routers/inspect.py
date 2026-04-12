@@ -116,11 +116,11 @@ async def land_inspect(
                 source_updated_at=sq.tsunami.source_updated_at if sq.tsunami else None,
             ),
             liquefaction=LiquefactionDetail(
-                risk_level=_level_for_score(scores.liquefaction_score),
-                risk_score=scores.liquefaction_score,
-                pl_value=sq.liquefaction.pl_value if sq.liquefaction else None,
-                source=sq.liquefaction.source_name if sq.liquefaction else "東京都 液状化予測図",
-                source_updated_at=sq.liquefaction.source_updated_at if sq.liquefaction else None,
+                risk_level="unavailable",
+                risk_score=None,
+                data_available=False,
+                map_url=sq.liquefaction.map_url if sq.liquefaction else None,
+                source=sq.liquefaction.source_name if sq.liquefaction else "J-SHIS 地震ハザードステーション（防災科学技術研究所）",
             ),
             composite_score=CompositeScore(
                 score=scores.composite_score,
