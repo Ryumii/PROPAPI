@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function ApiPromoBanner() {
   return (
     <section className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 flex flex-col sm:flex-row items-center gap-4">
@@ -11,7 +13,7 @@ export default function ApiPromoBanner() {
           リクエストまで無料。
         </p>
       </div>
-      <a
+      <Link
         href="/docs"
         className="shrink-0 inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition"
       >
@@ -29,7 +31,7 @@ export default function ApiPromoBanner() {
             d="M9 5l7 7-7 7"
           />
         </svg>
-      </a>
+      </Link>
     </section>
   );
 }

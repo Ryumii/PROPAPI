@@ -3,6 +3,7 @@
 import type { InspectResponse, ErrorResponse } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
 
 export class ApiError extends Error {
   code: string;
@@ -17,9 +18,12 @@ export class ApiError extends Error {
 }
 
 export async function inspect(address: string): Promise<InspectResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+
   const res = await fetch(`${API_BASE}/v1/land/inspect`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ address }),
   });
 

@@ -70,6 +70,7 @@ jobs:
         working-directory: web
         env:
           NEXT_PUBLIC_API_URL: https://api.propapi.jp
+          NEXT_PUBLIC_API_KEY: ${{ secrets.DEMO_API_KEY }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
