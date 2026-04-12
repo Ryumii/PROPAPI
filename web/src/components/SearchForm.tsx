@@ -3,8 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-export default function SearchForm() {
-  const [address, setAddress] = useState("");
+interface SearchFormProps {
+  compact?: boolean;
+  defaultValue?: string;
+}
+
+export default function SearchForm({
+  compact = false,
+  defaultValue = "",
+}: SearchFormProps) {
+  const [address, setAddress] = useState(defaultValue);
   const router = useRouter();
 
   const handleSubmit = (e: FormEvent) => {
@@ -15,25 +23,31 @@ export default function SearchForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-xl" role="search">
+    <form onSubmit={handleSubmit} className="w-full" role="search">
       <div className="relative">
         <input
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="住所を入力してください（例：東京都渋谷区渋谷2-24-12）"
-          className="w-full px-5 py-4 pr-16 text-lg border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          className={`w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
+            compact
+              ? "px-4 py-2 pr-12 text-sm"
+              : "px-5 py-4 pr-16 text-lg"
+          }`}
           aria-label="住所検索"
         />
         <button
           type="submit"
           disabled={!address.trim()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition"
+          className={`absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg transition ${
+            compact ? "px-2 py-1" : "px-4 py-2"
+          }`}
           aria-label="検索"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
+            className={compact ? "h-4 w-4" : "h-5 w-5"}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

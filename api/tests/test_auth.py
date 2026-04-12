@@ -8,13 +8,15 @@ class TestApiKeyGeneration:
     def test_live_key_format(self) -> None:
         plain, prefix, key_hash = generate_api_key(sandbox=False)
         assert plain.startswith("cs_live_")
-        assert prefix == "cs_live_"
+        assert prefix == plain[:12]
+        assert len(prefix) == 12
         assert len(plain) > 20
 
     def test_sandbox_key_format(self) -> None:
         plain, prefix, key_hash = generate_api_key(sandbox=True)
         assert plain.startswith("cs_test_")
-        assert prefix == "cs_test_"
+        assert prefix == plain[:12]
+        assert len(prefix) == 12
 
     def test_verify_correct_key(self) -> None:
         plain, _, key_hash = generate_api_key()

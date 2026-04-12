@@ -60,9 +60,17 @@ docker-compose.override.yml
 !**/fixtures/*.geojson
 data/raw/
 data/processed/
+etl/data/
+
+# Sample data
+Sample_GLI/
 
 # Obsidian (device-specific)
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 .obsidian/hotkeys.json
 .obsidian/cache
+
+# Terraform plan binary
+*.tfplan
+tfplan

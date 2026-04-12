@@ -15,10 +15,12 @@ DATA_DIR = ETL_ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 # ── Database (sync psycopg2) ─────────────────────────────────
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://reapi:changeme_local_only@localhost:5432/reapi",
+_raw_url = os.getenv(
+    "DATABASE_URL_SYNC",
+    os.getenv("DATABASE_URL", "postgresql://reapi:changeme_local_only@localhost:5432/reapi"),
 )
+# Ensure we always use a sync driver (strip asyncpg if present)
+DATABASE_URL = _raw_url.replace("postgresql+asyncpg://", "postgresql://") if "+asyncpg" in _raw_url else _raw_url
 
 # ── Batch processing ─────────────────────────────────────────
 BATCH_SIZE = 1000
@@ -53,6 +55,7 @@ TOKYO_23_WARDS: dict[str, str] = {
 }
 
 # ── Flood depth rank mapping ─────────────────────────────────
+# A31 (legacy): ranks 0-5
 FLOOD_DEPTH_RANGE: dict[int, str] = {
     0: "浸水なし",
     1: "0.5m未満",
@@ -60,6 +63,54 @@ FLOOD_DEPTH_RANGE: dict[int, str] = {
     3: "3m以上5m未満",
     4: "5m以上10m未満",
     5: "10m以上",
+}
+
+# A31b (2024〜): ranks 1-6
+A31B_DEPTH_RANGE: dict[int, str] = {
+    1: "0.5m未満",
+    2: "0.5m以上3m未満",
+    3: "3m以上5m未満",
+    4: "5m以上10m未満",
+    5: "10m以上20m未満",
+    6: "20m以上",
+}
+
+# A31b rank → normalised rank (0-5 scale for scoring)
+A31B_TO_NORMALISED_RANK: dict[int, int] = {
+    1: 1,  # 0.5m未満
+    2: 2,  # 0.5m以上3m未満
+    3: 3,  # 3m以上5m未満
+    4: 4,  # 5m以上10m未満
+    5: 5,  # 10m以上20m未満
+    6: 5,  # 20m以上 → clamp to 5
+}
+
+# ── Tsunami depth range string → numeric depth_m ─────────────
+TSUNAMI_DEPTH_RANGE_MAP: dict[str, float] = {
+    "～0.3m未満": 0.15,
+    "0.3m以上 ～ 0.5m未満": 0.4,
+    "0.3m以上～0.5m未満": 0.4,
+    "0.5m以上 ～ 1m未満": 0.75,
+    "0.5m以上～1m未満": 0.75,
+    "1m以上 ～ 3m未満": 2.0,
+    "1m以上～3m未満": 2.0,
+    "3m以上 ～ 5m未満": 4.0,
+    "3m以上～5m未満": 4.0,
+    "5m以上 ～ 10m未満": 7.5,
+    "5m以上～10m未満": 7.5,
+    "10m以上 ～ 20m未満": 15.0,
+    "10m以上～20m未満": 15.0,
+    "20m以上": 25.0,
+}
+
+# ── Landslide zone type mapping ──────────────────────────────
+LANDSLIDE_ZONE_TYPE_MAP: dict[str, str] = {
+    "1": "警戒区域",
+    "2": "特別警戒区域",
+    "3": "基礎調査完了",
+    "警戒区域": "警戒区域",
+    "特別警戒区域": "特別警戒区域",
+    "基礎調査完了": "基礎調査完了",
 }
 
 # ── Zoning use district codes ────────────────────────────────
@@ -83,6 +134,12 @@ USE_DISTRICT_MAP: dict[str, str] = {
 FIRE_PREVENTION_MAP: dict[str, str] = {
     "01": "防火地域",
     "02": "準防火地域",
+}
+
+# A55 (都市計画決定GIS) fire prevention code → normalised code
+A55_FIRE_CODE_MAP: dict[int, str] = {
+    24: "01",  # 防火地域
+    25: "02",  # 準防火地域
 }
 
 # ── Bounding box for Japan (lon_min, lat_min, lon_max, lat_max) ──

@@ -70,10 +70,24 @@ def read_shapefile(path: Path) -> Iterator[tuple[Any, dict[str, Any]]]:
     """Yield (shapely_geom, properties) from a Shapefile (.shp).
 
     Uses pyshp — no GDAL dependency required.
+    Tries UTF-8 first, falls back to CP932 (Shift_JIS) for Japanese data.
     """
-    reader = shp.Reader(str(path))
+    # Determine encoding: check .cpg file, then try utf-8, fallback cp932
+    cpg_path = path.with_suffix(".cpg")
+    encoding = "utf-8"
+    if cpg_path.exists():
+        encoding = cpg_path.read_text().strip() or "utf-8"
+    else:
+        # Probe: try to read first record with utf-8
+        try:
+            test_reader = shp.Reader(str(path), encoding="utf-8")
+            next(test_reader.iterShapeRecords())
+        except (UnicodeDecodeError, StopIteration):
+            encoding = "cp932"
+
+    reader = shp.Reader(str(path), encoding=encoding)
     count = len(reader)
-    logger.info("Reading %d records from %s", count, path.name)
+    logger.info("Reading %d records from %s (encoding=%s)", count, path.name, encoding)
     for sr in reader.iterShapeRecords():
         geom = shape(sr.shape.__geo_interface__)
         props = sr.record.as_dict()
@@ -95,11 +109,22 @@ def read_features(path: Path) -> Iterator[tuple[Any, dict[str, Any]]]:
         raise ValueError(msg)
 
 
-def find_files(directory: Path, patterns: tuple[str, ...] = ("*.geojson", "*.shp")) -> list[Path]:
-    """Glob for matching files in a directory."""
+def find_files(
+    directory: Path,
+    patterns: tuple[str, ...] = ("*.geojson", "*.shp"),
+    *,
+    recursive: bool = True,
+) -> list[Path]:
+    """Glob for matching files in a directory.
+
+    When *recursive* is True (default), searches subdirectories as well.
+    """
     files: list[Path] = []
     for pat in patterns:
-        files.extend(sorted(directory.glob(pat)))
+        if recursive:
+            files.extend(sorted(directory.rglob(pat)))
+        else:
+            files.extend(sorted(directory.glob(pat)))
     return files
 
 

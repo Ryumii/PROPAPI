@@ -1,8 +1,18 @@
-"""TASK-013: 土砂災害警戒区域データ ETL (東京23区).
+"""TASK-013: 土砂災害警戒区域データ ETL.
 
 Data source : 国土数値情報 A33 — 土砂災害警戒区域
-Format      : GeoJSON or Shapefile  (EPSG:4326 or JGD2011)
+Format      : Shapefile (CP932 or UTF-8, JGD2011)
 Target table: hazard_landslide
+
+A33 attributes (2024 version):
+  A33_001: 区域区分 (1=警戒区域, 2=特別警戒区域, 3=基礎調査完了)
+  A33_002: 自然現象種別 (1=急傾斜地崩壊, 2=土石流)
+  A33_003: 都道府県コード
+  A33_004: 区域番号
+  A33_005: ダッシュ区切りデータ
+  A33_006: 所在地
+  A33_007: 告示日
+  A33_008: 補助フラグ
 
 Usage:
     python -m etl.scripts.load_landslide --input-dir ./etl/data/landslide
@@ -16,6 +26,7 @@ from typing import Any
 
 from etl.common.geo import resolve_attr
 from etl.common.loader import build_cli, run_etl
+from etl.config import LANDSLIDE_ZONE_TYPE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +40,9 @@ INSERT_SQL = (
     " :zone_type, :source_id, :prefecture, :city)"
 )
 
-# 区域区分: 1 = 警戒区域 (Yellow), 2 = 特別警戒区域 (Red)
-ZONE_TYPE_MAP: dict[str, str] = {
-    "1": "警戒区域",
-    "2": "特別警戒区域",
-    "警戒区域": "警戒区域",
-    "特別警戒区域": "特別警戒区域",
-}
-
 ATTR = {
     "zone_type": ["A33_001", "区域区分", "zone_type", "ZoneType", "種別"],
-    "city": ["市区町村名", "city", "A33_002", "市区町村", "City"],
+    "city": ["A33_006", "市区町村名", "city", "City", "市区町村", "所在地"],
 }
 
 
@@ -54,10 +57,9 @@ def transform_feature(
     if raw_zone is None:
         return None  # skip — zone_type is required
 
-    zone_type = ZONE_TYPE_MAP.get(str(raw_zone).strip(), str(raw_zone).strip())
-    if zone_type not in ("警戒区域", "特別警戒区域"):
-        # Unknown zone type — still load, but log
-        logging.getLogger(__name__).warning("Unknown zone_type: %s", zone_type)
+    zone_type = LANDSLIDE_ZONE_TYPE_MAP.get(
+        str(raw_zone).strip(), str(raw_zone).strip()
+    )
 
     return {
         "geom_json": geom_json,

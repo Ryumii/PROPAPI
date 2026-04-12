@@ -24,12 +24,13 @@ def generate_api_key(*, sandbox: bool = False) -> tuple[str, str, str]:
     """Return (plain_key, key_prefix, key_hash).
 
     Format: cs_live_<random32> or cs_test_<random32>
+    key_prefix is the first 12 characters, matching _key_prefix() lookup.
     """
     prefix = "cs_test_" if sandbox else "cs_live_"
     random_part = secrets.token_urlsafe(32)
     plain_key = f"{prefix}{random_part}"
     key_hash = bcrypt.hashpw(plain_key.encode(), bcrypt.gensalt()).decode()
-    return plain_key, prefix, key_hash
+    return plain_key, _key_prefix(plain_key), key_hash
 
 
 def verify_api_key(plain_key: str, key_hash: str) -> bool:

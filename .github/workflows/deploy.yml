@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. API → Azure Container Apps ──────────────────────────
+  deploy-api:
+    name: "API → Azure"
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build & Push Docker Image
+        run: |
+          IMAGE="${{ secrets.ACR_NAME }}.azurecr.io/propapi-api"
+          docker build -f docker/api.prod.Dockerfile -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --name ca-propapi-api \
+            --resource-group rg-propapi-prod \
+            --image "${{ secrets.ACR_NAME }}.azurecr.io/propapi-api:${{ github.sha }}"
+
+  # ── 2. Web → GitHub Pages ──────────────────────────────────
+  deploy-web:
+    name: "Web → GitHub Pages"
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Build static site
+        run: npx next build
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: https://api.propapi.jp
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/out
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

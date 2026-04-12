@@ -5,7 +5,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gradient-to-b from-white to-gray-50">
       <div className="text-center mb-10">
         <h1 className="text-5xl font-extrabold tracking-tight mb-3">
-          RE<span className="text-blue-600">API</span>
+          Prop<span className="text-blue-600">API</span>
         </h1>
         <p className="text-xl text-gray-500">
           土地調査統合 API プラットフォーム
@@ -15,7 +15,9 @@ export default function Home() {
         </p>
       </div>
 
-      <SearchForm />
+      <div className="w-full max-w-xl">
+        <SearchForm />
+      </div>
 
       <section className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl text-center">
         <div>
