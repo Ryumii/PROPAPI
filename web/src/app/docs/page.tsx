@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "API ドキュメント | PropAPI",
@@ -15,9 +16,9 @@ export default function DocsPage() {
       {/* header */}
       <header className="border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-4">
-          <a href="/" className="text-xl font-extrabold shrink-0">
+          <Link href="/" className="text-xl font-extrabold shrink-0">
             Prop<span className="text-blue-600">API</span>
-          </a>
+          </Link>
           <h1 className="text-lg font-semibold text-gray-700">
             API ドキュメント
           </h1>

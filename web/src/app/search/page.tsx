@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 import SearchForm from "@/components/SearchForm";
 import RiskSummary from "@/components/RiskSummary";
@@ -49,9 +50,9 @@ function SearchResultsInner() {
       {/* ── header / search bar ── */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-100">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-4">
-          <a href="/" className="text-xl font-extrabold shrink-0">
+          <Link href="/" className="text-xl font-extrabold shrink-0">
             Prop<span className="text-blue-600">API</span>
-          </a>
+          </Link>
           <div className="flex-1">
             <SearchForm compact defaultValue={address} />
           </div>

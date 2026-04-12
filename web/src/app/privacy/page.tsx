@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "プライバシーポリシー | PropAPI",
@@ -10,9 +11,9 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-white">
       <header className="border-b border-gray-100">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <a href="/" className="text-xl font-extrabold shrink-0">
+          <Link href="/" className="text-xl font-extrabold shrink-0">
             Prop<span className="text-blue-600">API</span>
-          </a>
+          </Link>
           <h1 className="text-lg font-semibold text-gray-700">
             プライバシーポリシー
           </h1>
