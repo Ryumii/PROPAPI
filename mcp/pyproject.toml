@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "propapi-mcp"
+version = "0.1.0"
+description = "PropAPI MCP Server — Model Context Protocol で土地リスク調査ツールを公開"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "PropAPI", email = "admin@propapi.jp" }]
+dependencies = ["mcp>=1.0,<2", "httpx>=0.24,<1"]
+
+[project.scripts]
+propapi-mcp = "propapi_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/propapi_mcp"]

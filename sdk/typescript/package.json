@@ -1,0 +1,35 @@
+{
+  "name": "propapi",
+  "version": "0.1.0",
+  "description": "PropAPI TypeScript/JavaScript SDK — 土地リスク調査 API クライアント",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": ["propapi", "hazard", "zoning", "real-estate", "japan", "api"],
+  "author": "PropAPI <admin@propapi.jp>",
+  "license": "MIT",
+  "homepage": "https://propapi.jp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ryumii/REAPI.git",
+    "directory": "sdk/typescript"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^3.0.0"
+  }
+}
