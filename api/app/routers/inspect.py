@@ -120,7 +120,11 @@ async def land_inspect(
                 risk_score=None,
                 data_available=False,
                 map_url=sq.liquefaction.map_url if sq.liquefaction else None,
-                source=sq.liquefaction.source_name if sq.liquefaction else "J-SHIS 地震ハザードステーション（防災科学技術研究所）",
+                source=(
+                    sq.liquefaction.source_name
+                    if sq.liquefaction
+                    else "J-SHIS 地震ハザードステーション（防災科学技術研究所）"
+                ),
             ),
             composite_score=CompositeScore(
                 score=scores.composite_score,

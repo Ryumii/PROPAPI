@@ -1,7 +1,8 @@
 """Seed a test user + API key for local development."""
-import psycopg2
-import bcrypt
 import secrets
+
+import bcrypt
+import psycopg2
 
 conn = psycopg2.connect("postgresql://reapi:changeme_local_only@localhost:5432/reapi")
 cur = conn.cursor()

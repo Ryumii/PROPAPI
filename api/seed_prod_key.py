@@ -1,8 +1,9 @@
 """Seed a production user + API key on Azure PG."""
-import psycopg2
-import bcrypt
-import secrets
 import os
+import secrets
+
+import bcrypt
+import psycopg2
 
 db_url = os.environ["DATABASE_URL_SYNC"]
 conn = psycopg2.connect(db_url)
