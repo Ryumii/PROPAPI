@@ -154,7 +154,7 @@ def _try_convert_english(text: str) -> str | None:
             continue
 
         # Check town name (before city, so "Shibuya" resolves to town if city is already set)
-        if low in _EN_TO_JA_TOWN and (city_ja or not low in _EN_TO_JA_CITY):
+        if low in _EN_TO_JA_TOWN and (city_ja or low not in _EN_TO_JA_CITY):
             town_ja = _EN_TO_JA_TOWN[low]
             continue
 

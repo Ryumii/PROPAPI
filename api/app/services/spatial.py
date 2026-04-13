@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from geoalchemy2.functions import ST_Contains, ST_DWithin, ST_Intersects
+from geoalchemy2.functions import ST_DWithin, ST_Intersects
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -267,7 +267,10 @@ async def _query_school_district(
         school_name=row.school_name,
         administrator=row.administrator,
         address=row.address,
-        source_name=row.source.name if row.source else f"国土数値情報 {'小学校区' if school_type == 'elementary' else '中学校区'}データ",
+        source_name=(
+            row.source.name if row.source
+            else f"国土数値情報 {'小学校区' if school_type == 'elementary' else '中学校区'}データ"
+        ),
         source_url=row.source.url if row.source else None,
     )
 

@@ -60,7 +60,10 @@ async def land_inspect(
 
         parsed = normalize_address(body.address)
         cache_key_input = parsed.normalized or body.address
-    options_hash = f"h={body.options.include_hazard}&z={body.options.include_zoning}&lp={body.options.include_land_price}&sd={body.options.include_school_district}"
+    options_hash = (
+        f"h={body.options.include_hazard}&z={body.options.include_zoning}"
+        f"&lp={body.options.include_land_price}&sd={body.options.include_school_district}"
+    )
 
     if cache_key_input:
         cached = await cache.get_inspect(cache_key_input, options_hash)

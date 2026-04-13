@@ -1,7 +1,7 @@
 """Land price (公示地価) data model — L01 national land price survey points."""
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin

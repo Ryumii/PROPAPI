@@ -6,7 +6,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from geoalchemy2.functions import ST_AsGeoJSON, ST_Intersects, ST_MakeEnvelope
+from geoalchemy2.functions import ST_Intersects, ST_MakeEnvelope
 from sqlalchemy import func, select
 
 from app.database import AsyncSession, get_db
@@ -155,7 +155,7 @@ async def get_hazard_geojson(
     delta = radius_km / 111.0
     bbox = ST_MakeEnvelope(lng - delta, lat - delta, lng + delta, lat + delta, 4326)
 
-    requested = [l.strip() for l in layers.split(",") if l.strip() in _LAYER_MODELS]
+    requested = [lyr.strip() for lyr in layers.split(",") if lyr.strip() in _LAYER_MODELS]
     all_features: list[dict] = []
 
     for layer_name in requested:
@@ -172,9 +172,14 @@ async def get_hazard_geojson(
         )
         result = await db.execute(stmt)
         rows = result.all()
-        all_features.extend(
-            _build_features([type("R", (), {"geom_geojson": r.geom_geojson, **{c: getattr(r[0], c) for c in _props_for(layer_name)}})() for r in rows], layer_name)
-        )
+        fakes = [
+            type(
+                "R", (),
+                {"geom_geojson": r.geom_geojson, **{c: getattr(r[0], c) for c in _props_for(layer_name)}},
+            )()
+            for r in rows
+        ]
+        all_features.extend(_build_features(fakes, layer_name))
 
     fc = {"type": "FeatureCollection", "features": all_features}
     return JSONResponse(content=fc, headers={"Cache-Control": "public, max-age=3600"})
