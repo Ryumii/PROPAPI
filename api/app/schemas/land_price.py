@@ -25,3 +25,4 @@ class LandPriceResponse(BaseModel):
     nearby: list[NearbyLandPrice] = Field(default_factory=list, description="近隣の公示地価地点 (5件まで)")
     source: str = Field(default="国土数値情報 地価公示データ (L01)", examples=["国土数値情報 地価公示データ (L01)"])
     source_updated_at: str | None = None
+    source_url: str | None = Field(None, description="データソースのURL")

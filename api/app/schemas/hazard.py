@@ -9,8 +9,10 @@ class FloodDetail(BaseModel):
     depth_m: float | None = Field(None, examples=[0.5])
     depth_range: str | None = Field(None, examples=["0.0m〜0.5m"])
     return_period_years: int | None = Field(None, examples=[1000])
+    river_name: str | None = Field(None, examples=["荒川"], description="氾濫対象河川名")
     source: str = Field(..., examples=["国土交通省 洪水浸水想定区域図"])
     source_updated_at: str | None = None
+    source_url: str | None = Field(None, description="データソースのURL")
 
 
 class LandslideDetail(BaseModel):
@@ -19,6 +21,7 @@ class LandslideDetail(BaseModel):
     zone_type: str | None = Field(None, examples=["警戒区域"])
     source: str = Field(..., examples=["国土交通省 土砂災害警戒区域"])
     source_updated_at: str | None = None
+    source_url: str | None = Field(None, description="データソースのURL")
 
 
 class TsunamiDetail(BaseModel):
@@ -27,6 +30,7 @@ class TsunamiDetail(BaseModel):
     depth_m: float | None = None
     source: str = Field(..., examples=["内閣府 津波浸水想定"])
     source_updated_at: str | None = None
+    source_url: str | None = Field(None, description="データソースのURL")
 
 
 class LiquefactionDetail(BaseModel):

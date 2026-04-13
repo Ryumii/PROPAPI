@@ -52,4 +52,5 @@ async def get_zoning(
         scenic_district=sq.zoning.scenic_district,
         source=sq.zoning.source_name,
         source_updated_at=sq.zoning.source_updated_at,
+        source_url=sq.zoning.source_url,
     )

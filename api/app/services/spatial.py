@@ -40,6 +40,7 @@ class FloodResult:
     river_name: str | None = None
     source_name: str = "国土交通省 洪水浸水想定区域図"
     source_updated_at: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -47,6 +48,7 @@ class LandslideResult:
     zone_type: str | None = None
     source_name: str = "国土交通省 土砂災害警戒区域"
     source_updated_at: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -54,6 +56,7 @@ class TsunamiResult:
     depth_m: float | None = None
     source_name: str = "内閣府 津波浸水想定"
     source_updated_at: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -84,6 +87,7 @@ class ZoningResult:
     scenic_district: str | None = None
     source_name: str = "国土数値情報 用途地域データ"
     source_updated_at: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -109,6 +113,7 @@ class LandPriceResult:
     nearby: list[LandPricePoint] = field(default_factory=list)
     source_name: str = "国土数値情報 地価公示データ (L01)"
     source_updated_at: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -142,6 +147,7 @@ async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
         river_name=row.river_name,
         source_name=row.source.name if row.source else "国土交通省 洪水浸水想定区域図",
         source_updated_at=row.source.last_updated_at if row.source else None,
+        source_url=row.source.url if row.source else None,
     )
 
 
@@ -162,6 +168,7 @@ async def _query_landslide(db: AsyncSession, point_wkt: str) -> LandslideResult 
         zone_type=row.zone_type,
         source_name=row.source.name if row.source else "国土交通省 土砂災害警戒区域",
         source_updated_at=row.source.last_updated_at if row.source else None,
+        source_url=row.source.url if row.source else None,
     )
 
 
@@ -183,6 +190,7 @@ async def _query_tsunami(db: AsyncSession, point_wkt: str) -> TsunamiResult | No
         depth_m=float(row.depth_m) if row.depth_m is not None else None,
         source_name=row.source.name if row.source else "内閣府 津波浸水想定",
         source_updated_at=row.source.last_updated_at if row.source else None,
+        source_url=row.source.url if row.source else None,
     )
 
 
@@ -215,6 +223,7 @@ async def _query_zoning(db: AsyncSession, point_wkt: str) -> ZoningResult | None
         scenic_district=row.scenic_district,
         source_name=row.source.name if row.source else "国土数値情報 用途地域データ",
         source_updated_at=row.source.last_updated_at if row.source else None,
+        source_url=row.source.url if row.source else None,
     )
 
 
@@ -275,15 +284,18 @@ async def _query_land_price(
 
     source_name = "国土数値情報 地価公示データ (L01)"
     source_updated = None
+    source_url = None
     if rows[0][0].source:
         source_name = rows[0][0].source.name
         source_updated = rows[0][0].source.last_updated_at
+        source_url = rows[0][0].source.url
 
     return LandPriceResult(
         nearest=points[0] if points else None,
         nearby=points,
         source_name=source_name,
         source_updated_at=source_updated,
+        source_url=source_url,
     )
 
 

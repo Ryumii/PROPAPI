@@ -78,8 +78,10 @@ async def _process_item(
                     depth_m=sq.flood.depth_rank if sq.flood else None,
                     depth_range=sq.flood.depth_range if sq.flood else None,
                     return_period_years=sq.flood.return_period if sq.flood else None,
+                    river_name=sq.flood.river_name if sq.flood else None,
                     source=sq.flood.source_name if sq.flood else "国土交通省 洪水浸水想定区域図",
                     source_updated_at=sq.flood.source_updated_at if sq.flood else None,
+                    source_url=sq.flood.source_url if sq.flood else None,
                 ),
                 landslide=LandslideDetail(
                     risk_level=_level_for_score(scores.landslide_score),
@@ -87,6 +89,7 @@ async def _process_item(
                     zone_type=sq.landslide.zone_type if sq.landslide else None,
                     source=sq.landslide.source_name if sq.landslide else "国土交通省 土砂災害警戒区域",
                     source_updated_at=sq.landslide.source_updated_at if sq.landslide else None,
+                    source_url=sq.landslide.source_url if sq.landslide else None,
                 ),
                 tsunami=TsunamiDetail(
                     risk_level=_level_for_score(scores.tsunami_score),
@@ -94,6 +97,7 @@ async def _process_item(
                     depth_m=float(sq.tsunami.depth_m) if sq.tsunami and sq.tsunami.depth_m else None,
                     source=sq.tsunami.source_name if sq.tsunami else "内閣府 津波浸水想定",
                     source_updated_at=sq.tsunami.source_updated_at if sq.tsunami else None,
+                    source_url=sq.tsunami.source_url if sq.tsunami else None,
                 ),
                 liquefaction=LiquefactionDetail(
                     risk_level="unavailable",
@@ -126,6 +130,7 @@ async def _process_item(
                 scenic_district=sq.zoning.scenic_district,
                 source=sq.zoning.source_name,
                 source_updated_at=sq.zoning.source_updated_at,
+                source_url=sq.zoning.source_url,
             )
 
         elapsed_ms = int((time.monotonic() - start) * 1000)

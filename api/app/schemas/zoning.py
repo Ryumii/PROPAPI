@@ -14,3 +14,4 @@ class ZoningResponse(BaseModel):
     scenic_district: str | None = None
     source: str = Field(..., examples=["国土数値情報 用途地域データ"])
     source_updated_at: str | None = None
+    source_url: str | None = Field(None, description="データソースのURL")
