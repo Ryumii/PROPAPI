@@ -32,7 +32,7 @@ INSERT_SQL = (
     "INSERT INTO hazard_tsunami "
     "(geom, depth_m, source_id, prefecture, city) "
     "VALUES ("
-    " ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326)), "
+    " ST_Multi(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326))), "
     " :depth_m, :source_id, :prefecture, :city)"
 )
 

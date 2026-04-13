@@ -40,7 +40,7 @@ INSERT_SQL = (
     "(geom, depth_rank, depth_range, return_period, river_name, "
     " source_id, prefecture, city) "
     "VALUES ("
-    " ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326)), "
+    " ST_Multi(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326))), "
     " :depth_rank, :depth_range, :return_period, :river_name, "
     " :source_id, :prefecture, :city)"
 )

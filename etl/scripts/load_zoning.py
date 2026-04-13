@@ -41,7 +41,7 @@ INSERT_SQL = (
     " fire_prevention, fire_code, height_district, scenic_district, "
     " source_id, prefecture, city) "
     "VALUES ("
-    " ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326)), "
+    " ST_Multi(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:geom_json), 4326))), "
     " :use_district, :use_code, :coverage_pct, :floor_ratio_pct, "
     " :fire_prevention, :fire_code, :height_district, :scenic_district, "
     " :source_id, :prefecture, :city)"
