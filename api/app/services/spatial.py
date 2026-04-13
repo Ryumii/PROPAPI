@@ -1,10 +1,11 @@
 """Spatial query service — ST_Intersects lookups against PostGIS hazard/zoning tables.
 
 Notes:
-  - We use ST_Intersects(ST_MakeValid(geom), point) instead of ST_Contains
-    because national hazard data contains ~2% invalid geometries (self-intersections)
-    that cause ST_Contains to silently return false.
-  - ST_MakeValid fixes these at query time with minimal overhead (GiST index still used).
+  - We use ST_Intersects(geom, point) instead of ST_Contains because:
+    1. ST_Contains silently returns false for invalid geometries
+    2. ST_Intersects is more tolerant of edge cases and invalid geoms
+  - Invalid geometries are fixed at ETL insert time via ST_MakeValid
+  - Existing data was repaired via UPDATE SET geom = ST_MakeValid(geom)
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from geoalchemy2.functions import ST_Contains, ST_DWithin, ST_Intersects, ST_MakeValid
+from geoalchemy2.functions import ST_Contains, ST_DWithin, ST_Intersects
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -124,7 +125,7 @@ async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
     stmt = (
         select(HazardFlood)
         .where(ST_Intersects(
-            ST_MakeValid(HazardFlood.geom),
+            HazardFlood.geom,
             func.ST_GeomFromEWKT(point_wkt),
         ))
         .order_by(HazardFlood.depth_rank.desc())
@@ -148,7 +149,7 @@ async def _query_landslide(db: AsyncSession, point_wkt: str) -> LandslideResult 
     stmt = (
         select(HazardLandslide)
         .where(ST_Intersects(
-            ST_MakeValid(HazardLandslide.geom),
+            HazardLandslide.geom,
             func.ST_GeomFromEWKT(point_wkt),
         ))
         .limit(1)
@@ -168,7 +169,7 @@ async def _query_tsunami(db: AsyncSession, point_wkt: str) -> TsunamiResult | No
     stmt = (
         select(HazardTsunami)
         .where(ST_Intersects(
-            ST_MakeValid(HazardTsunami.geom),
+            HazardTsunami.geom,
             func.ST_GeomFromEWKT(point_wkt),
         ))
         .order_by(HazardTsunami.depth_m.desc().nulls_last())
@@ -194,7 +195,7 @@ async def _query_zoning(db: AsyncSession, point_wkt: str) -> ZoningResult | None
     stmt = (
         select(ZoningDistrict)
         .where(ST_Intersects(
-            ST_MakeValid(ZoningDistrict.geom),
+            ZoningDistrict.geom,
             func.ST_GeomFromEWKT(point_wkt),
         ))
         .limit(1)
