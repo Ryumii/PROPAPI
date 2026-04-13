@@ -29,7 +29,7 @@ export default function SearchForm({
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          placeholder="住所を入力してください（例：東京都渋谷区渋谷2-24-12）"
+          placeholder="住所 or 座標（例：東京都渋谷区渋谷2-24-12 / 35.659, 139.700）"
           className={`w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
             compact
               ? "px-4 py-2 pr-12 text-sm"

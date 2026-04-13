@@ -11,7 +11,7 @@ import LandPriceInfo from "@/components/LandPriceInfo";
 import DataSource from "@/components/DataSource";
 import HazardMap from "@/components/HazardMap";
 import ApiPromoBanner from "@/components/ApiPromoBanner";
-import { inspect, ApiError } from "@/lib/api";
+import { inspect, inspectByCoords, parseCoordinates, ApiError } from "@/lib/api";
 import type { InspectResponse } from "@/lib/types";
 
 /* ── inner component (uses useSearchParams) ──────────── */
@@ -29,7 +29,10 @@ function SearchResultsInner() {
     setError(null);
     setData(null);
     try {
-      const res = await inspect(addr);
+      const coords = parseCoordinates(addr);
+      const res = coords
+        ? await inspectByCoords(coords.lat, coords.lng)
+        : await inspect(addr);
       setData(res);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -65,7 +68,7 @@ function SearchResultsInner() {
         {/* address label */}
         {address && (
           <div className="text-sm text-gray-500">
-            検索住所:{" "}
+            {parseCoordinates(address) ? "検索座標: " : "検索住所: "}
             <span className="font-medium text-gray-800">
               {data?.address_normalized ?? address}
             </span>
@@ -108,7 +111,7 @@ function SearchResultsInner() {
         {/* empty state */}
         {!loading && !error && !data && !address && (
           <p className="text-center text-gray-400 py-20">
-            住所を入力して検索してください。
+            住所または座標を入力して検索してください。
           </p>
         )}
       </main>
