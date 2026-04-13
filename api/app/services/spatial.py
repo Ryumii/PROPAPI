@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.hazard import HazardFlood, HazardLandslide, HazardTsunami
 from app.models.land_price import LandPrice
+from app.models.school_district import SchoolDistrict
 from app.models.zoning import ZoningDistrict
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,16 @@ class LandPriceResult:
 
 
 @dataclass
+class SchoolDistrictResult:
+    school_type: str = ""
+    school_name: str = ""
+    administrator: str | None = None
+    address: str | None = None
+    source_name: str = "国土数値情報 小学校区データ (A27)"
+    source_url: str | None = None
+
+
+@dataclass
 class SpatialQueryResult:
     flood: FloodResult | None = None
     landslide: LandslideResult | None = None
@@ -124,6 +135,8 @@ class SpatialQueryResult:
     liquefaction: LiquefactionMapInfo | None = None
     zoning: ZoningResult | None = None
     land_price: LandPriceResult | None = None
+    elementary_school: SchoolDistrictResult | None = None
+    junior_high_school: SchoolDistrictResult | None = None
 
 
 async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
@@ -227,6 +240,38 @@ async def _query_zoning(db: AsyncSession, point_wkt: str) -> ZoningResult | None
     )
 
 
+# ---------- school district (ST_Intersects) ----------------------------
+
+
+async def _query_school_district(
+    db: AsyncSession, point_wkt: str, school_type: str,
+) -> SchoolDistrictResult | None:
+    """Find the school district polygon containing the given point."""
+    stmt = (
+        select(SchoolDistrict)
+        .where(
+            SchoolDistrict.school_type == school_type,
+            ST_Intersects(
+                SchoolDistrict.geom,
+                func.ST_GeomFromEWKT(point_wkt),
+            ),
+        )
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return SchoolDistrictResult(
+        school_type=row.school_type,
+        school_name=row.school_name,
+        administrator=row.administrator,
+        address=row.address,
+        source_name=row.source.name if row.source else f"国土数値情報 {'小学校区' if school_type == 'elementary' else '中学校区'}データ",
+        source_url=row.source.url if row.source else None,
+    )
+
+
 # ---------- land price (nearest neighbour KNN) --------------------------
 
 # Search radius: 2 km
@@ -310,6 +355,7 @@ async def spatial_query(
     include_hazard: bool = True,
     include_zoning: bool = True,
     include_land_price: bool = True,
+    include_school_district: bool = True,
 ) -> SpatialQueryResult:
     """Run parallel spatial queries against PostGIS tables."""
     point = _point_wkt(lat, lng)
@@ -325,6 +371,9 @@ async def spatial_query(
         result.liquefaction = _build_liquefaction_info(lat, lng)
     if include_zoning:
         tasks.append(("zoning", _query_zoning(db, point)))
+    if include_school_district:
+        tasks.append(("elementary_school", _query_school_district(db, point, "elementary")))
+        tasks.append(("junior_high_school", _query_school_district(db, point, "junior_high")))
 
     if not tasks:
         return result

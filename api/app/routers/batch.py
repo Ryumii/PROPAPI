@@ -27,6 +27,7 @@ from app.schemas.hazard import (
     TsunamiDetail,
 )
 from app.schemas.inspect import InspectMeta, InspectResponse, LocationInfo
+from app.schemas.school_district import SchoolDistrictInfo, SchoolDistrictResponse
 from app.schemas.zoning import ZoningResponse
 from app.services.billing import record_usage
 from app.services.geocoder import geocode
@@ -65,6 +66,7 @@ async def _process_item(
             geo.lng,
             include_hazard=options.options.include_hazard,
             include_zoning=options.options.include_zoning,
+            include_school_district=options.options.include_school_district,
         )
 
         scores = calculate_scores(sq)
@@ -133,6 +135,35 @@ async def _process_item(
                 source_url=sq.zoning.source_url,
             )
 
+        # --- school district ---
+        school_resp: SchoolDistrictResponse | None = None
+        if options.options.include_school_district:
+            elem_info = None
+            if sq.elementary_school:
+                elem_info = SchoolDistrictInfo(
+                    school_type=sq.elementary_school.school_type,
+                    school_name=sq.elementary_school.school_name,
+                    administrator=sq.elementary_school.administrator,
+                    address=sq.elementary_school.address,
+                    source=sq.elementary_school.source_name,
+                    source_url=sq.elementary_school.source_url,
+                )
+            jh_info = None
+            if sq.junior_high_school:
+                jh_info = SchoolDistrictInfo(
+                    school_type=sq.junior_high_school.school_type,
+                    school_name=sq.junior_high_school.school_name,
+                    administrator=sq.junior_high_school.administrator,
+                    address=sq.junior_high_school.address,
+                    source=sq.junior_high_school.source_name,
+                    source_url=sq.junior_high_school.source_url,
+                )
+            if elem_info or jh_info:
+                school_resp = SchoolDistrictResponse(
+                    elementary=elem_info,
+                    junior_high=jh_info,
+                )
+
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         inspect_resp = InspectResponse(
@@ -147,6 +178,7 @@ async def _process_item(
             ),
             hazard=hazard_resp,
             zoning=zoning_resp,
+            school_district=school_resp,
             meta=InspectMeta(
                 confidence=geo.confidence,
                 geocoding_method=geo.method,

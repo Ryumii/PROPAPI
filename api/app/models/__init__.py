@@ -6,6 +6,7 @@ from app.models.base import Base
 from app.models.data_source import DataSource
 from app.models.hazard import HazardFlood, HazardLandslide, HazardLiquefaction, HazardTsunami
 from app.models.land_price import LandPrice
+from app.models.school_district import SchoolDistrict
 from app.models.usage import DataChangeLog, UsageLog
 from app.models.zoning import ZoningDistrict
 
@@ -20,6 +21,7 @@ __all__ = [
     "HazardLiquefaction",
     "HazardTsunami",
     "LandPrice",
+    "SchoolDistrict",
     "UserAccount",
     "UsageLog",
     "ZoningDistrict",

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.hazard import HazardResponse
 from app.schemas.land_price import LandPriceResponse
+from app.schemas.school_district import SchoolDistrictResponse
 from app.schemas.zoning import ZoningResponse
 
 
@@ -11,6 +12,7 @@ class InspectOptions(BaseModel):
     include_hazard: bool = True
     include_zoning: bool = True
     include_land_price: bool = True
+    include_school_district: bool = True
 
 
 class InspectRequest(BaseModel):
@@ -49,4 +51,5 @@ class InspectResponse(BaseModel):
     hazard: HazardResponse | None = None
     zoning: ZoningResponse | None = None
     land_price: LandPriceResponse | None = None
+    school_district: SchoolDistrictResponse | None = None
     meta: InspectMeta

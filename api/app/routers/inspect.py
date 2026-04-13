@@ -20,6 +20,7 @@ from app.schemas.hazard import (
 )
 from app.schemas.inspect import InspectMeta, InspectRequest, InspectResponse, LocationInfo
 from app.schemas.land_price import LandPriceResponse, NearbyLandPrice
+from app.schemas.school_district import SchoolDistrictInfo, SchoolDistrictResponse
 from app.schemas.zoning import ZoningResponse
 from app.services.billing import record_usage
 from app.services.cache import get_cache
@@ -59,7 +60,7 @@ async def land_inspect(
 
         parsed = normalize_address(body.address)
         cache_key_input = parsed.normalized or body.address
-    options_hash = f"h={body.options.include_hazard}&z={body.options.include_zoning}&lp={body.options.include_land_price}"
+    options_hash = f"h={body.options.include_hazard}&z={body.options.include_zoning}&lp={body.options.include_land_price}&sd={body.options.include_school_district}"
 
     if cache_key_input:
         cached = await cache.get_inspect(cache_key_input, options_hash)
@@ -85,6 +86,7 @@ async def land_inspect(
         include_hazard=body.options.include_hazard,
         include_zoning=body.options.include_zoning,
         include_land_price=body.options.include_land_price,
+        include_school_district=body.options.include_school_district,
     )
 
     # --- scoring ---
@@ -196,6 +198,35 @@ async def land_inspect(
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
+    # --- school district ---
+    school_resp: SchoolDistrictResponse | None = None
+    if body.options.include_school_district:
+        elem_info = None
+        if sq.elementary_school:
+            elem_info = SchoolDistrictInfo(
+                school_type=sq.elementary_school.school_type,
+                school_name=sq.elementary_school.school_name,
+                administrator=sq.elementary_school.administrator,
+                address=sq.elementary_school.address,
+                source=sq.elementary_school.source_name,
+                source_url=sq.elementary_school.source_url,
+            )
+        jh_info = None
+        if sq.junior_high_school:
+            jh_info = SchoolDistrictInfo(
+                school_type=sq.junior_high_school.school_type,
+                school_name=sq.junior_high_school.school_name,
+                administrator=sq.junior_high_school.administrator,
+                address=sq.junior_high_school.address,
+                source=sq.junior_high_school.source_name,
+                source_url=sq.junior_high_school.source_url,
+            )
+        if elem_info or jh_info:
+            school_resp = SchoolDistrictResponse(
+                elementary=elem_info,
+                junior_high=jh_info,
+            )
+
     response = InspectResponse(
         request_id=request_id,
         address_normalized=geo.normalized_address,
@@ -209,6 +240,7 @@ async def land_inspect(
         hazard=hazard_resp,
         zoning=zoning_resp,
         land_price=land_price_resp,
+        school_district=school_resp,
         meta=InspectMeta(
             confidence=geo.confidence,
             geocoding_method=geo.method,
