@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
+from geoalchemy2.functions import ST_AsGeoJSON, ST_Intersects, ST_MakeEnvelope
+from sqlalchemy import func, select
 
 from app.database import AsyncSession, get_db
 from app.dependencies import AuthenticatedKey
+from app.models.hazard import HazardFlood, HazardLandslide, HazardTsunami
 from app.schemas.errors import MISSING_LOCATION, ErrorResponse
 from app.schemas.hazard import (
     CompositeScore,
@@ -85,3 +91,97 @@ async def get_hazard(
             description=scores.composite_description,
         ),
     )
+
+
+# ── GeoJSON overlay endpoint for map ──────────────────────
+
+
+_LAYER_MODELS = {
+    "flood": HazardFlood,
+    "landslide": HazardLandslide,
+    "tsunami": HazardTsunami,
+}
+
+_FLOOD_COLORS: dict[int, str] = {
+    0: "#ffffff",
+    1: "#ffffb2",  # ~0.5m
+    2: "#fecc5c",  # 0.5-1m
+    3: "#fd8d3c",  # 1-2m
+    4: "#f03b20",  # 2-5m
+    5: "#bd0026",  # 5m+
+}
+
+
+def _build_features(rows: list, layer: str) -> list[dict]:
+    """Convert DB rows to GeoJSON features."""
+    features = []
+    for row in rows:
+        geom_json = json.loads(row.geom_geojson)
+        props: dict = {"layer": layer}
+        if layer == "flood":
+            props["depth_rank"] = row.depth_rank
+            props["depth_range"] = row.depth_range
+            props["color"] = _FLOOD_COLORS.get(row.depth_rank, "#cccccc")
+        elif layer == "landslide":
+            props["zone_type"] = row.zone_type
+            props["color"] = "#bd0026" if row.zone_type == "特別警戒区域" else "#fd8d3c"
+        elif layer == "tsunami":
+            props["depth_m"] = float(row.depth_m) if row.depth_m else None
+            props["color"] = "#0c4a6e"
+        features.append(
+            {"type": "Feature", "geometry": geom_json, "properties": props}
+        )
+    return features
+
+
+@router.get(
+    "/v1/hazard/geojson",
+    summary="ハザードゾーン GeoJSON",
+    description="指定地点周辺のハザードポリゴンを GeoJSON FeatureCollection で返す（地図オーバーレイ用）",
+)
+async def get_hazard_geojson(
+    api_key: AuthenticatedKey,
+    lat: float = Query(..., ge=20.0, le=46.0, description="緯度"),
+    lng: float = Query(..., ge=122.0, le=154.0, description="経度"),
+    layers: str = Query("flood,landslide,tsunami", description="カンマ区切り: flood,landslide,tsunami"),
+    radius_km: float = Query(2.0, ge=0.1, le=10.0, description="検索半径 (km)"),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> JSONResponse:
+    # Convert km to approx degrees (1 degree ≈ 111km)
+    delta = radius_km / 111.0
+    bbox = ST_MakeEnvelope(lng - delta, lat - delta, lng + delta, lat + delta, 4326)
+
+    requested = [l.strip() for l in layers.split(",") if l.strip() in _LAYER_MODELS]
+    all_features: list[dict] = []
+
+    for layer_name in requested:
+        model = _LAYER_MODELS[layer_name]
+        stmt = (
+            select(
+                model,
+                func.ST_AsGeoJSON(func.ST_SimplifyPreserveTopology(model.geom, 0.0001)).label(
+                    "geom_geojson"
+                ),
+            )
+            .where(ST_Intersects(model.geom, bbox))
+            .limit(500)
+        )
+        result = await db.execute(stmt)
+        rows = result.all()
+        all_features.extend(
+            _build_features([type("R", (), {"geom_geojson": r.geom_geojson, **{c: getattr(r[0], c) for c in _props_for(layer_name)}})() for r in rows], layer_name)
+        )
+
+    fc = {"type": "FeatureCollection", "features": all_features}
+    return JSONResponse(content=fc, headers={"Cache-Control": "public, max-age=3600"})
+
+
+def _props_for(layer: str) -> list[str]:
+    """Column names to extract per layer."""
+    if layer == "flood":
+        return ["depth_rank", "depth_range"]
+    if layer == "landslide":
+        return ["zone_type"]
+    if layer == "tsunami":
+        return ["depth_m"]
+    return []

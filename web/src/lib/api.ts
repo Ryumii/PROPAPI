@@ -83,3 +83,18 @@ export function parseCoordinates(input: string): { lat: number; lng: number } | 
   }
   return null;
 }
+
+export async function fetchHazardGeoJSON(
+  lat: number,
+  lng: number,
+  layers = "flood,landslide,tsunami",
+): Promise<GeoJSON.FeatureCollection> {
+  const headers: Record<string, string> = {};
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+
+  const params = new URLSearchParams({ lat: String(lat), lng: String(lng), layers });
+  const res = await fetch(`${API_BASE}/v1/hazard/geojson?${params}`, { headers });
+
+  if (!res.ok) return { type: "FeatureCollection", features: [] };
+  return (await res.json()) as GeoJSON.FeatureCollection;
+}
