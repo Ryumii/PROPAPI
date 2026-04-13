@@ -5,6 +5,10 @@
 			"path": "."
 		},
 		{
+			"name": "propapi-web",
+			"path": "../propapi-web"
+		},
+		{
 			"name": "reapi-docs (Obsidian)",
 			"path": "C:\\Users\\miyakeryuta\\Desktop\\REAPI"
 		}
