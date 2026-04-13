@@ -7,6 +7,7 @@ import Link from "next/link";
 import SearchForm from "@/components/SearchForm";
 import RiskSummary from "@/components/RiskSummary";
 import ZoningInfo from "@/components/ZoningInfo";
+import LandPriceInfo from "@/components/LandPriceInfo";
 import DataSource from "@/components/DataSource";
 import HazardMap from "@/components/HazardMap";
 import ApiPromoBanner from "@/components/ApiPromoBanner";
@@ -97,6 +98,7 @@ function SearchResultsInner() {
           <>
             {data.hazard && <RiskSummary hazard={data.hazard} />}
             {data.zoning && <ZoningInfo zoning={data.zoning} />}
+            {data.land_price && <LandPriceInfo landPrice={data.land_price} />}
             <HazardMap location={data.location} hazard={data.hazard} />
             <DataSource meta={data.meta} />
             <ApiPromoBanner />

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from geoalchemy2.functions import ST_Contains
+from geoalchemy2.functions import ST_Contains, ST_DWithin
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.hazard import HazardFlood, HazardLandslide, HazardTsunami
+from app.models.land_price import LandPrice
 from app.models.zoning import ZoningDistrict
 
 logger = logging.getLogger(__name__)
@@ -78,12 +79,38 @@ class ZoningResult:
 
 
 @dataclass
+class LandPricePoint:
+    """Single nearby land price point."""
+    price_per_sqm: int = 0
+    year: int = 0
+    yoy_change_pct: float | None = None
+    land_use: str | None = None
+    address: str | None = None
+    area_sqm: int | None = None
+    structure: str | None = None
+    nearest_station: str | None = None
+    station_distance_m: int | None = None
+    distance_m: int = 0
+    lat: float = 0.0
+    lng: float = 0.0
+
+
+@dataclass
+class LandPriceResult:
+    nearest: LandPricePoint | None = None
+    nearby: list[LandPricePoint] = field(default_factory=list)
+    source_name: str = "国土数値情報 地価公示データ (L01)"
+    source_updated_at: str | None = None
+
+
+@dataclass
 class SpatialQueryResult:
     flood: FloodResult | None = None
     landslide: LandslideResult | None = None
     tsunami: TsunamiResult | None = None
     liquefaction: LiquefactionMapInfo | None = None
     zoning: ZoningResult | None = None
+    land_price: LandPriceResult | None = None
 
 
 async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
@@ -171,6 +198,75 @@ async def _query_zoning(db: AsyncSession, point_wkt: str) -> ZoningResult | None
     )
 
 
+# ---------- land price (nearest neighbour KNN) --------------------------
+
+# Search radius: 2 km
+_LAND_PRICE_RADIUS_M = 2000
+_LAND_PRICE_LIMIT = 5
+
+
+async def _query_land_price(
+    db: AsyncSession, lat: float, lng: float,
+) -> LandPriceResult | None:
+    """Find nearest land price points within 2 km using PostGIS geography distance."""
+    point_geog = func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
+
+    stmt = (
+        select(
+            LandPrice,
+            func.ST_Distance(
+                func.Geography(LandPrice.geom),
+                func.Geography(point_geog),
+            ).label("dist_m"),
+            func.ST_Y(LandPrice.geom).label("pt_lat"),
+            func.ST_X(LandPrice.geom).label("pt_lng"),
+        )
+        .where(
+            ST_DWithin(
+                func.Geography(LandPrice.geom),
+                func.Geography(point_geog),
+                _LAND_PRICE_RADIUS_M,
+            )
+        )
+        .order_by("dist_m")
+        .limit(_LAND_PRICE_LIMIT)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+    if not rows:
+        return None
+
+    points = []
+    for row_obj, dist_m, pt_lat, pt_lng in rows:
+        points.append(LandPricePoint(
+            price_per_sqm=row_obj.price_per_sqm,
+            year=row_obj.year,
+            yoy_change_pct=row_obj.yoy_change_pct,
+            land_use=row_obj.land_use,
+            address=row_obj.address,
+            area_sqm=row_obj.area_sqm,
+            structure=row_obj.structure,
+            nearest_station=row_obj.nearest_station,
+            station_distance_m=row_obj.station_distance_m,
+            distance_m=int(dist_m) if dist_m else 0,
+            lat=float(pt_lat),
+            lng=float(pt_lng),
+        ))
+
+    source_name = "国土数値情報 地価公示データ (L01)"
+    source_updated = None
+    if rows[0][0].source:
+        source_name = rows[0][0].source.name
+        source_updated = rows[0][0].source.last_updated_at
+
+    return LandPriceResult(
+        nearest=points[0] if points else None,
+        nearby=points,
+        source_name=source_name,
+        source_updated_at=source_updated,
+    )
+
+
 # ---------- public orchestrator -----------------------------------------
 
 
@@ -181,6 +277,7 @@ async def spatial_query(
     *,
     include_hazard: bool = True,
     include_zoning: bool = True,
+    include_land_price: bool = True,
 ) -> SpatialQueryResult:
     """Run parallel spatial queries against PostGIS tables."""
     point = _point_wkt(lat, lng)
@@ -209,5 +306,12 @@ async def spatial_query(
             setattr(result, name, value)
         except Exception:
             logger.warning("Spatial query failed for %s at (%s, %s)", name, lat, lng, exc_info=True)
+
+    # Land price uses KNN (lat/lng directly, not point_wkt)
+    if include_land_price:
+        try:
+            result.land_price = await _query_land_price(db, lat, lng)
+        except Exception:
+            logger.warning("Land price query failed at (%s, %s)", lat, lng, exc_info=True)
 
     return result

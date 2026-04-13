@@ -19,6 +19,7 @@ from app.schemas.hazard import (
     TsunamiDetail,
 )
 from app.schemas.inspect import InspectMeta, InspectRequest, InspectResponse, LocationInfo
+from app.schemas.land_price import LandPriceResponse, NearbyLandPrice
 from app.schemas.zoning import ZoningResponse
 from app.services.billing import record_usage
 from app.services.cache import get_cache
@@ -58,7 +59,7 @@ async def land_inspect(
 
         parsed = normalize_address(body.address)
         cache_key_input = parsed.normalized or body.address
-    options_hash = f"h={body.options.include_hazard}&z={body.options.include_zoning}"
+    options_hash = f"h={body.options.include_hazard}&z={body.options.include_zoning}&lp={body.options.include_land_price}"
 
     if cache_key_input:
         cached = await cache.get_inspect(cache_key_input, options_hash)
@@ -83,6 +84,7 @@ async def land_inspect(
         db, geo.lat, geo.lng,
         include_hazard=body.options.include_hazard,
         include_zoning=body.options.include_zoning,
+        include_land_price=body.options.include_land_price,
     )
 
     # --- scoring ---
@@ -148,6 +150,44 @@ async def land_inspect(
             source_updated_at=sq.zoning.source_updated_at,
         )
 
+    land_price_resp: LandPriceResponse | None = None
+    if body.options.include_land_price and sq.land_price:
+        land_price_resp = LandPriceResponse(
+            nearest=NearbyLandPrice(
+                price_per_sqm=sq.land_price.nearest.price_per_sqm,
+                year=sq.land_price.nearest.year,
+                yoy_change_pct=sq.land_price.nearest.yoy_change_pct,
+                land_use=sq.land_price.nearest.land_use,
+                address=sq.land_price.nearest.address,
+                area_sqm=sq.land_price.nearest.area_sqm,
+                structure=sq.land_price.nearest.structure,
+                nearest_station=sq.land_price.nearest.nearest_station,
+                station_distance_m=sq.land_price.nearest.station_distance_m,
+                distance_m=sq.land_price.nearest.distance_m,
+                lat=sq.land_price.nearest.lat,
+                lng=sq.land_price.nearest.lng,
+            ) if sq.land_price.nearest else None,
+            nearby=[
+                NearbyLandPrice(
+                    price_per_sqm=p.price_per_sqm,
+                    year=p.year,
+                    yoy_change_pct=p.yoy_change_pct,
+                    land_use=p.land_use,
+                    address=p.address,
+                    area_sqm=p.area_sqm,
+                    structure=p.structure,
+                    nearest_station=p.nearest_station,
+                    station_distance_m=p.station_distance_m,
+                    distance_m=p.distance_m,
+                    lat=p.lat,
+                    lng=p.lng,
+                )
+                for p in sq.land_price.nearby
+            ],
+            source=sq.land_price.source_name,
+            source_updated_at=sq.land_price.source_updated_at,
+        )
+
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
     response = InspectResponse(
@@ -162,6 +202,7 @@ async def land_inspect(
         ),
         hazard=hazard_resp,
         zoning=zoning_resp,
+        land_price=land_price_resp,
         meta=InspectMeta(
             confidence=geo.confidence,
             geocoding_method=geo.method,

@@ -66,6 +66,30 @@ export interface ZoningResponse {
   source_updated_at: string | null;
 }
 
+// ── Land Price ──────────────────────────────────────────
+
+export interface NearbyLandPrice {
+  price_per_sqm: number;
+  year: number;
+  yoy_change_pct: number | null;
+  land_use: string | null;
+  address: string | null;
+  area_sqm: number | null;
+  structure: string | null;
+  nearest_station: string | null;
+  station_distance_m: number | null;
+  distance_m: number;
+  lat: number;
+  lng: number;
+}
+
+export interface LandPriceResponse {
+  nearest: NearbyLandPrice | null;
+  nearby: NearbyLandPrice[];
+  source: string;
+  source_updated_at: string | null;
+}
+
 // ── Inspect ─────────────────────────────────────────────
 
 export interface LocationInfo {
@@ -90,6 +114,7 @@ export interface InspectResponse {
   location: LocationInfo;
   hazard: HazardResponse | null;
   zoning: ZoningResponse | null;
+  land_price: LandPriceResponse | null;
   meta: InspectMeta;
 }
 

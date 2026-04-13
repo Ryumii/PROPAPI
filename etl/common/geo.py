@@ -33,12 +33,14 @@ def transform_to_wgs84(geom: Any, *, source_epsg: int = 6668) -> Any:
     return transform(t.transform, geom)
 
 
-def ensure_multi(geom: Any) -> MultiPolygon:
-    """Coerce Polygon → MultiPolygon. Pass-through if already Multi."""
+def ensure_multi(geom: Any) -> Any:
+    """Coerce Polygon → MultiPolygon. Pass-through Point/MultiPoint as-is."""
     if geom.geom_type == "MultiPolygon":
         return geom
     if geom.geom_type == "Polygon":
         return MultiPolygon([geom])
+    if geom.geom_type in ("Point", "MultiPoint"):
+        return geom
     msg = f"Unexpected geometry type: {geom.geom_type}"
     raise ValueError(msg)
 
