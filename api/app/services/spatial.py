@@ -4,7 +4,9 @@ Notes:
   - All stored geometries are validated (ST_MakeValid) at ETL insert time.
   - Existing data was repaired via UPDATE SET geom = ST_MakeValid(geom).
   - Queries use ST_Intersects(geom, point) which leverages the GiST index.
-  - Do NOT use ST_MakeValid at query time — it’s extremely slow on complex
+  - Fallback: if ST_Intersects returns nothing, ST_DWithin finds the nearest
+    polygon within 50m (flood/tsunami) or 30m (landslide) to handle data gaps.
+  - Do NOT use ST_MakeValid at query time — it's extremely slow on complex
     multipolygons (~25s per geometry) even when already valid.
 """
 
@@ -14,9 +16,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from geoalchemy2.functions import ST_DWithin, ST_Intersects
-from sqlalchemy import func, select
+from geoalchemy2.functions import ST_DWithin, ST_Distance, ST_Intersects
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from geoalchemy2 import Geography
 
 from app.models.hazard import HazardFlood, HazardLandslide, HazardTsunami
 from app.models.land_price import LandPrice
@@ -140,17 +143,28 @@ class SpatialQueryResult:
 
 
 async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
+    point_geom = func.ST_GeomFromEWKT(point_wkt)
     stmt = (
         select(HazardFlood)
-        .where(ST_Intersects(
-            HazardFlood.geom,
-            func.ST_GeomFromEWKT(point_wkt),
-        ))
+        .where(ST_Intersects(HazardFlood.geom, point_geom))
         .order_by(HazardFlood.depth_rank.desc())
         .limit(1)
     )
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
+    # Fallback: find nearest polygon within 50m if point falls in a gap
+    if row is None:
+        point_geog = cast(point_geom, Geography)
+        stmt_near = (
+            select(HazardFlood)
+            .where(ST_DWithin(
+                cast(HazardFlood.geom, Geography), point_geog, 50,
+            ))
+            .order_by(HazardFlood.depth_rank.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt_near)
+        row = result.scalar_one_or_none()
     if row is None:
         return None
     return FloodResult(
@@ -165,16 +179,25 @@ async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
 
 
 async def _query_landslide(db: AsyncSession, point_wkt: str) -> LandslideResult | None:
+    point_geom = func.ST_GeomFromEWKT(point_wkt)
     stmt = (
         select(HazardLandslide)
-        .where(ST_Intersects(
-            HazardLandslide.geom,
-            func.ST_GeomFromEWKT(point_wkt),
-        ))
+        .where(ST_Intersects(HazardLandslide.geom, point_geom))
         .limit(1)
     )
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
+    if row is None:
+        point_geog = cast(point_geom, Geography)
+        stmt_near = (
+            select(HazardLandslide)
+            .where(ST_DWithin(
+                cast(HazardLandslide.geom, Geography), point_geog, 30,
+            ))
+            .limit(1)
+        )
+        result = await db.execute(stmt_near)
+        row = result.scalar_one_or_none()
     if row is None:
         return None
     return LandslideResult(
@@ -186,17 +209,27 @@ async def _query_landslide(db: AsyncSession, point_wkt: str) -> LandslideResult 
 
 
 async def _query_tsunami(db: AsyncSession, point_wkt: str) -> TsunamiResult | None:
+    point_geom = func.ST_GeomFromEWKT(point_wkt)
     stmt = (
         select(HazardTsunami)
-        .where(ST_Intersects(
-            HazardTsunami.geom,
-            func.ST_GeomFromEWKT(point_wkt),
-        ))
+        .where(ST_Intersects(HazardTsunami.geom, point_geom))
         .order_by(HazardTsunami.depth_m.desc().nulls_last())
         .limit(1)
     )
     result = await db.execute(stmt)
     row = result.scalar_one_or_none()
+    if row is None:
+        point_geog = cast(point_geom, Geography)
+        stmt_near = (
+            select(HazardTsunami)
+            .where(ST_DWithin(
+                cast(HazardTsunami.geom, Geography), point_geog, 50,
+            ))
+            .order_by(HazardTsunami.depth_m.desc().nulls_last())
+            .limit(1)
+        )
+        result = await db.execute(stmt_near)
+        row = result.scalar_one_or_none()
     if row is None:
         return None
     return TsunamiResult(
