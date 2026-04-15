@@ -17,8 +17,10 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
-    stripe_growth_price_id: str = ""
-    stripe_business_price_id: str = ""
+    stripe_light_price_id: str = ""
+    stripe_pro_price_id: str = ""
+    stripe_max_price_id: str = ""
+    stripe_overage_price_id: str = ""  # metered price for overage billing
 
     # Logging
     log_level: str = "INFO"

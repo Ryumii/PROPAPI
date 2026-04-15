@@ -23,7 +23,7 @@ router = APIRouter(prefix="/v1/billing", tags=["billing"])
 
 
 class CheckoutRequest(BaseModel):
-    plan: str = Field(..., pattern="^(growth|business)$", examples=["growth"])
+    plan: str = Field(..., pattern="^(light|pro|max)$", examples=["pro"])
     success_url: str = Field(..., examples=["https://propapi.jp/dashboard?session_id={CHECKOUT_SESSION_ID}"])
     cancel_url: str = Field(..., examples=["https://propapi.jp/pricing"])
 
@@ -33,7 +33,7 @@ class CheckoutResponse(BaseModel):
 
 
 class ChangePlanRequest(BaseModel):
-    plan: str = Field(..., pattern="^(starter|growth|business)$", examples=["growth"])
+    plan: str = Field(..., pattern="^(free|light|pro|max)$", examples=["pro"])
 
 
 class SubscriptionResponse(BaseModel):
@@ -42,12 +42,15 @@ class SubscriptionResponse(BaseModel):
     status: str
     monthly_limit: int
     rate_per_sec: int
+    overage_price_yen: int
 
 
 class PlanInfo(BaseModel):
     name: str
     monthly_limit: int
     rate_per_sec: int
+    burst: int
+    overage_price_yen: int
     price_id: str
 
 
@@ -67,6 +70,8 @@ async def list_plans() -> PlansResponse:
             name=cfg.name,
             monthly_limit=cfg.monthly_limit,
             rate_per_sec=cfg.rate_per_sec,
+            burst=cfg.burst,
+            overage_price_yen=cfg.overage_price_yen,
             price_id=cfg.price_id,
         )
     return PlansResponse(plans=plans_out)
@@ -91,6 +96,7 @@ async def get_subscription(
         status="active" if user.stripe_subscription_id else "free",
         monthly_limit=plan_cfg.monthly_limit,
         rate_per_sec=plan_cfg.rate_per_sec,
+        overage_price_yen=plan_cfg.overage_price_yen,
     )
 
 
@@ -138,6 +144,7 @@ async def change_plan(
             status="no_change",
             monthly_limit=plan_cfg.monthly_limit,
             rate_per_sec=plan_cfg.rate_per_sec,
+            overage_price_yen=plan_cfg.overage_price_yen,
         )
 
     try:
@@ -152,6 +159,7 @@ async def change_plan(
         status=result_data["status"],
         monthly_limit=plan_cfg.monthly_limit,
         rate_per_sec=plan_cfg.rate_per_sec,
+        overage_price_yen=plan_cfg.overage_price_yen,
     )
 
 
@@ -168,13 +176,14 @@ async def cancel_subscription(
         raise HTTPException(status_code=404, detail="User not found")
 
     result_data = await stripe_service.cancel_subscription(db, user)
-    plan_cfg = stripe_service.get_plan_config("starter")
+    plan_cfg = stripe_service.get_plan_config("free")
     return SubscriptionResponse(
-        plan="starter",
+        plan="free",
         subscription_id=None,
         status=result_data["status"],
         monthly_limit=plan_cfg.monthly_limit,
         rate_per_sec=plan_cfg.rate_per_sec,
+        overage_price_yen=plan_cfg.overage_price_yen,
     )
 
 

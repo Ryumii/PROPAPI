@@ -6,6 +6,7 @@ Handles:
   - Subscription management (upgrade / downgrade / cancel)
   - Webhook event processing
   - Plan ↔ limits mapping
+  - Overage (metered) billing
 """
 
 from __future__ import annotations
@@ -31,46 +32,70 @@ class PlanConfig:
     name: str
     monthly_limit: int
     rate_per_sec: int
+    burst: int
+    overage_price_yen: int  # 0 = overage not allowed (hard block)
     price_id: str  # Stripe Price ID (empty for free tier)
 
 
 def _build_plans() -> dict[str, PlanConfig]:
     return {
-        "starter": PlanConfig(
-            name="Starter",
-            monthly_limit=1_000,
-            rate_per_sec=10,
+        "free": PlanConfig(
+            name="Free",
+            monthly_limit=100,
+            rate_per_sec=1,
+            burst=20,
+            overage_price_yen=0,
             price_id="",
         ),
-        "professional": PlanConfig(
-            name="Professional",
+        "light": PlanConfig(
+            name="Light",
+            monthly_limit=1_000,
+            rate_per_sec=10,
+            burst=20,
+            overage_price_yen=5,
+            price_id=settings.stripe_light_price_id,
+        ),
+        "pro": PlanConfig(
+            name="Pro",
             monthly_limit=50_000,
             rate_per_sec=50,
-            price_id=settings.stripe_growth_price_id,
+            burst=100,
+            overage_price_yen=3,
+            price_id=settings.stripe_pro_price_id,
         ),
-        "growth": PlanConfig(
-            name="Growth",
-            monthly_limit=50_000,
-            rate_per_sec=50,
-            price_id=settings.stripe_growth_price_id,
-        ),
-        "business": PlanConfig(
-            name="Business",
+        "max": PlanConfig(
+            name="Max",
             monthly_limit=500_000,
             rate_per_sec=200,
-            price_id=settings.stripe_business_price_id,
+            burst=400,
+            overage_price_yen=2,
+            price_id=settings.stripe_max_price_id,
         ),
     }
 
 
 PLANS = _build_plans()
 
+# Legacy plan aliases (for existing DB rows)
+_LEGACY_ALIASES: dict[str, str] = {
+    "starter": "free",
+    "professional": "pro",
+    "growth": "pro",
+    "business": "max",
+}
+
 
 def get_plan_config(plan_name: str) -> PlanConfig:
-    cfg = PLANS.get(plan_name)
+    resolved = _LEGACY_ALIASES.get(plan_name, plan_name)
+    cfg = PLANS.get(resolved)
     if cfg is None:
         raise ValueError(f"Unknown plan: {plan_name}")
     return cfg
+
+
+def resolve_plan_name(plan_name: str) -> str:
+    """Resolve legacy plan name to current canonical name."""
+    return _LEGACY_ALIASES.get(plan_name, plan_name)
 
 
 # ---------- Stripe client init --------------------------------------------
@@ -173,11 +198,11 @@ async def change_subscription(
 
     _init_stripe()
 
-    if new_plan == "starter":
+    if new_plan == "free":
         # Downgrade to free = cancel subscription
         stripe.Subscription.cancel(user.stripe_subscription_id)
-        await _apply_plan_change(db, user, "starter", None)
-        return {"subscription_id": None, "status": "canceled", "plan": "starter"}
+        await _apply_plan_change(db, user, "free", None)
+        return {"subscription_id": None, "status": "canceled", "plan": "free"}
 
     if not plan_cfg.price_id:
         raise ValueError("Cannot switch to plan without price ID")
@@ -212,9 +237,9 @@ async def cancel_subscription(
 
     _init_stripe()
     stripe.Subscription.cancel(user.stripe_subscription_id)
-    await _apply_plan_change(db, user, "starter", None)
+    await _apply_plan_change(db, user, "free", None)
 
-    return {"status": "canceled", "plan": "starter"}
+    return {"status": "canceled", "plan": "free"}
 
 
 # ---------- Webhook processing --------------------------------------------
@@ -299,7 +324,7 @@ async def _handle_subscription_change(
 
     status = subscription.get("status")
     if status in ("canceled", "unpaid", "incomplete_expired"):
-        await _apply_plan_change(db, user, "starter", None)
+        await _apply_plan_change(db, user, "free", None)
     elif status == "active":
         # Determine plan from price
         items = subscription.get("items", {}).get("data", [])

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.database import AsyncSession, get_db
 from app.models.auth import ApiKey
 from app.services.rate_limiter import RateLimitResult, get_rate_limiter
+from app.services.stripe_service import get_plan_config
 
 logger = logging.getLogger(__name__)
 
@@ -89,15 +90,31 @@ async def require_api_key(
     request.state.rate_limit_headers = rl.headers
 
     if not rl.allowed:
-        if rl.remaining_month <= 0:
+        # Per-second rate limit always blocks
+        if rl.remaining_month > 0:
             raise HTTPException(
                 status_code=429,
-                detail={"code": "QUOTA_EXCEEDED", "message": "月間リクエスト上限を超過しました"},
+                detail={"code": "RATE_LIMITED", "message": "レートリミットを超過しました"},
                 headers=rl.headers,
             )
+
+        # Monthly quota exceeded — check if overage is allowed
+        try:
+            plan_cfg = get_plan_config(api_key.plan)
+        except ValueError:
+            plan_cfg = None
+
+        if plan_cfg and plan_cfg.overage_price_yen > 0:
+            # Paid plan: allow through as overage (will be billed)
+            rl.headers["X-Overage"] = "true"
+            rl.headers["X-Overage-Price-Yen"] = str(plan_cfg.overage_price_yen)
+            request.state.rate_limit_headers = rl.headers
+            return api_key
+
+        # Free plan: hard block
         raise HTTPException(
             status_code=429,
-            detail={"code": "RATE_LIMITED", "message": "レートリミットを超過しました"},
+            detail={"code": "QUOTA_EXCEEDED", "message": "月間リクエスト上限を超過しました"},
             headers=rl.headers,
         )
 

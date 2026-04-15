@@ -14,7 +14,7 @@ class UserAccount(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default="starter")
+    plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default="free")
     company_name: Mapped[str | None] = mapped_column(String(255))
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255))
@@ -29,9 +29,9 @@ class ApiKey(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_account.id"), nullable=False)
     key_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(12), nullable=False)
-    plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default="starter")
-    monthly_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1000")
-    rate_per_sec: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
+    plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default="free")
+    monthly_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
+    rate_per_sec: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False
