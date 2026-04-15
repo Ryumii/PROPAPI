@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Stripe Billing Meter event name
     stripe_meter_event_name: str = "api_request"
 
+    # Admin
+    admin_emails: str = ""  # comma-separated admin emails
+
     # Logging
     log_level: str = "INFO"
 
