@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
-from sqlalchemy import case, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -33,8 +33,8 @@ def _admin_emails() -> set[str]:
 
 
 async def require_admin(
-    db: AsyncSession = Depends(get_db),
-    authorization: str = Header(..., alias="Authorization"),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    authorization: str = Header(..., alias="Authorization"),  # noqa: B008
 ) -> UserAccount:
     """JWT auth + admin email whitelist check."""
     if not authorization.startswith("Bearer "):
@@ -127,8 +127,8 @@ class UpdateUserRequest(BaseModel):
 
 @router.get("/stats", response_model=SystemStatsResponse)
 async def system_stats(
-    _admin: UserAccount = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    _admin: UserAccount = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> SystemStatsResponse:
     """Platform-wide statistics."""
     now = datetime.now(UTC)
@@ -194,8 +194,8 @@ async def list_users(
     per_page: int = 50,
     plan: str | None = None,
     search: str | None = None,
-    _admin: UserAccount = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    _admin: UserAccount = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> UserListResponse:
     """List all users with usage stats."""
     now = datetime.now(UTC)
@@ -264,8 +264,8 @@ async def list_users(
 @router.get("/users/{user_id}", response_model=AdminUserDetail)
 async def get_user_detail(
     user_id: int,
-    _admin: UserAccount = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    _admin: UserAccount = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> AdminUserDetail:
     """Detailed view of a single user."""
     now = datetime.now(UTC)
@@ -343,8 +343,8 @@ async def get_user_detail(
 async def update_user(
     user_id: int,
     body: UpdateUserRequest,
-    _admin: UserAccount = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    _admin: UserAccount = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, str]:
     """Update user plan or company name (admin override)."""
     stmt = select(UserAccount).where(UserAccount.id == user_id)
@@ -373,8 +373,8 @@ async def update_user(
 @router.post("/users/{user_id}/disable-keys")
 async def disable_user_keys(
     user_id: int,
-    _admin: UserAccount = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    _admin: UserAccount = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, str]:
     """Disable all API keys for a user (emergency kill switch)."""
     result = await db.execute(

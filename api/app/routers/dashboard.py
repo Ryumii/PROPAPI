@@ -29,8 +29,8 @@ JWT_ALGORITHM = "HS256"
 
 
 async def require_user(
-    db: AsyncSession = Depends(get_db),
-    authorization: str = Header(..., alias="Authorization"),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    authorization: str = Header(..., alias="Authorization"),  # noqa: B008
 ) -> UserAccount:
     """Extract and verify JWT from Authorization: Bearer <token>."""
     if not authorization.startswith("Bearer "):
@@ -116,8 +116,8 @@ class UsageChartResponse(BaseModel):
 
 @router.get("/overview", response_model=OverviewResponse)
 async def get_overview(
-    user: UserAccount = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserAccount = Depends(require_user),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> OverviewResponse:
     """Dashboard overview: user info, plan, usage summary, API keys."""
     plan_cfg = get_plan_config(user.plan)
@@ -181,8 +181,8 @@ async def get_overview(
 
 @router.get("/keys", response_model=list[ApiKeyInfo])
 async def list_keys(
-    user: UserAccount = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserAccount = Depends(require_user),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> list[ApiKeyInfo]:
     """List all API keys for the authenticated user."""
     stmt = select(ApiKey).where(ApiKey.user_id == user.id).order_by(ApiKey.created_at.desc())
@@ -204,8 +204,8 @@ async def list_keys(
 
 @router.post("/keys", response_model=CreateKeyResponse, status_code=201)
 async def create_key(
-    user: UserAccount = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserAccount = Depends(require_user),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> CreateKeyResponse:
     """Create a new API key. The plain key is returned only once."""
     # Limit keys per user
@@ -245,8 +245,8 @@ async def create_key(
 @router.delete("/keys/{key_id}")
 async def revoke_key(
     key_id: int,
-    user: UserAccount = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserAccount = Depends(require_user),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, str]:
     """Revoke (deactivate) an API key."""
     stmt = select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user.id)
@@ -263,8 +263,8 @@ async def revoke_key(
 @router.get("/usage", response_model=UsageChartResponse)
 async def get_usage(
     days: int = 30,
-    user: UserAccount = Depends(require_user),
-    db: AsyncSession = Depends(get_db),
+    user: UserAccount = Depends(require_user),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> UsageChartResponse:
     """Daily usage data for the chart (last N days)."""
     if days < 1 or days > 90:

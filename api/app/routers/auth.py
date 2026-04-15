@@ -82,7 +82,7 @@ class UserInfo(BaseModel):
 @router.post("/register", response_model=RegisterResponse, status_code=201)
 async def register(
     body: RegisterRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> RegisterResponse:
     """Create a new user account with a Flex plan API key."""
     # Check duplicate
@@ -133,7 +133,7 @@ async def register(
 @router.post("/login", response_model=LoginResponse)
 async def login(
     body: LoginRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> LoginResponse:
     """Authenticate and return a JWT token."""
     stmt = select(UserAccount).where(UserAccount.email == body.email)
