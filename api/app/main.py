@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers.batch import router as batch_router
+from app.routers.billing import router as billing_router
 from app.routers.hazard import router as hazard_router
 from app.routers.health import router as health_router
 from app.routers.inspect import router as inspect_router
@@ -29,3 +30,4 @@ app.include_router(inspect_router)
 app.include_router(batch_router)
 app.include_router(hazard_router)
 app.include_router(zoning_router)
+app.include_router(billing_router)

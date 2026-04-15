@@ -17,6 +17,7 @@ class UserAccount(Base, TimestampMixin):
     plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default="starter")
     company_name: Mapped[str | None] = mapped_column(String(255))
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255))
 
     api_keys = relationship("ApiKey", back_populates="user", lazy="selectin")
 

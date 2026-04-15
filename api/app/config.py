@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     api_secret_key: str = "change-this-to-a-random-secret"
     cors_origins: str = "http://localhost:3000"
 
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_growth_price_id: str = ""
+    stripe_business_price_id: str = ""
+
     # Logging
     log_level: str = "INFO"
 
