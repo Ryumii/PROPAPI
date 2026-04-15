@@ -142,10 +142,10 @@ class SpatialQueryResult:
 
 
 # Approximate degree equivalents for fallback buffer (at ~35°N Japan latitude)
-# 0.0005° ≈ 50m, 0.0003° ≈ 30m
-_FLOOD_BUFFER_DEG = 0.0005
+# 0.001° ≈ 100m, 0.0005° ≈ 50m, 0.0003° ≈ 30m
+_FLOOD_BUFFER_DEG = 0.001
 _LANDSLIDE_BUFFER_DEG = 0.0003
-_TSUNAMI_BUFFER_DEG = 0.0005
+_TSUNAMI_BUFFER_DEG = 0.001
 
 
 async def _query_flood(db: AsyncSession, point_wkt: str) -> FloodResult | None:
