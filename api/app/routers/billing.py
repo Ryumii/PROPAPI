@@ -23,7 +23,7 @@ router = APIRouter(prefix="/v1/billing", tags=["billing"])
 
 
 class CheckoutRequest(BaseModel):
-    plan: str = Field(..., pattern="^(light|pro|max)$", examples=["pro"])
+    plan: str = Field(..., pattern="^(flex|light|pro|max)$", examples=["pro"])
     success_url: str = Field(..., examples=["https://propapi.jp/dashboard?session_id={CHECKOUT_SESSION_ID}"])
     cancel_url: str = Field(..., examples=["https://propapi.jp/pricing"])
 
@@ -33,7 +33,7 @@ class CheckoutResponse(BaseModel):
 
 
 class ChangePlanRequest(BaseModel):
-    plan: str = Field(..., pattern="^(free|light|pro|max)$", examples=["pro"])
+    plan: str = Field(..., pattern="^(flex|light|pro|max)$", examples=["pro"])
 
 
 class SubscriptionResponse(BaseModel):
@@ -176,9 +176,9 @@ async def cancel_subscription(
         raise HTTPException(status_code=404, detail="User not found")
 
     result_data = await stripe_service.cancel_subscription(db, user)
-    plan_cfg = stripe_service.get_plan_config("free")
+    plan_cfg = stripe_service.get_plan_config("flex")
     return SubscriptionResponse(
-        plan="free",
+        plan="flex",
         subscription_id=None,
         status=result_data["status"],
         monthly_limit=plan_cfg.monthly_limit,

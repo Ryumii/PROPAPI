@@ -6,7 +6,7 @@ Handles:
   - Subscription management (upgrade / downgrade / cancel)
   - Webhook event processing
   - Plan ↔ limits mapping
-  - Overage (metered) billing
+  - Metered usage reporting via Stripe Billing Meters
 """
 
 from __future__ import annotations
@@ -30,46 +30,51 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class PlanConfig:
     name: str
-    monthly_limit: int
+    monthly_limit: int       # 0 = no included quota (pure usage-based)
     rate_per_sec: int
     burst: int
-    overage_price_yen: int  # 0 = overage not allowed (hard block)
-    price_id: str  # Stripe Price ID (empty for free tier)
+    overage_price_yen: int   # per-request price for overage / usage
+    price_id: str            # Stripe recurring Price ID (empty = no base fee)
+    metered_price_id: str    # Stripe metered Price ID for usage
 
 
 def _build_plans() -> dict[str, PlanConfig]:
     return {
-        "free": PlanConfig(
-            name="Free",
-            monthly_limit=100,
+        "flex": PlanConfig(
+            name="Flex",
+            monthly_limit=0,
             rate_per_sec=1,
             burst=20,
-            overage_price_yen=0,
+            overage_price_yen=5,
             price_id="",
+            metered_price_id=settings.stripe_flex_metered_price_id,
         ),
         "light": PlanConfig(
             name="Light",
             monthly_limit=1_000,
             rate_per_sec=10,
             burst=20,
-            overage_price_yen=5,
+            overage_price_yen=4,
             price_id=settings.stripe_light_price_id,
+            metered_price_id=settings.stripe_light_metered_price_id,
         ),
         "pro": PlanConfig(
             name="Pro",
-            monthly_limit=50_000,
+            monthly_limit=10_000,
             rate_per_sec=50,
             burst=100,
             overage_price_yen=3,
             price_id=settings.stripe_pro_price_id,
+            metered_price_id=settings.stripe_pro_metered_price_id,
         ),
         "max": PlanConfig(
             name="Max",
-            monthly_limit=500_000,
+            monthly_limit=100_000,
             rate_per_sec=200,
             burst=400,
             overage_price_yen=2,
             price_id=settings.stripe_max_price_id,
+            metered_price_id=settings.stripe_max_metered_price_id,
         ),
     }
 
@@ -78,7 +83,8 @@ PLANS = _build_plans()
 
 # Legacy plan aliases (for existing DB rows)
 _LEGACY_ALIASES: dict[str, str] = {
-    "starter": "free",
+    "starter": "flex",
+    "free": "flex",
     "professional": "pro",
     "growth": "pro",
     "business": "max",
@@ -137,8 +143,16 @@ async def create_checkout_session(
 ) -> str:
     """Create a Stripe Checkout Session and return the URL."""
     plan_cfg = get_plan_config(plan)
-    if not plan_cfg.price_id:
-        raise ValueError("Cannot create checkout for free plan")
+
+    # Build line items: base subscription + metered usage
+    line_items: list[dict[str, Any]] = []
+    if plan_cfg.price_id:
+        line_items.append({"price": plan_cfg.price_id, "quantity": 1})
+    if plan_cfg.metered_price_id:
+        line_items.append({"price": plan_cfg.metered_price_id})
+
+    if not line_items:
+        raise ValueError("Plan has no associated Stripe prices")
 
     customer_id = await ensure_stripe_customer(db, user)
 
@@ -146,7 +160,7 @@ async def create_checkout_session(
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
-        line_items=[{"price": plan_cfg.price_id, "quantity": 1}],
+        line_items=line_items,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={"user_id": str(user.id), "plan": plan},
@@ -164,15 +178,23 @@ async def create_subscription(
 ) -> dict[str, Any]:
     """Create a subscription directly (for server-side flow)."""
     plan_cfg = get_plan_config(plan)
-    if not plan_cfg.price_id:
-        raise ValueError("Cannot subscribe to free plan")
+
+    # Build subscription items
+    items: list[dict[str, str]] = []
+    if plan_cfg.price_id:
+        items.append({"price": plan_cfg.price_id})
+    if plan_cfg.metered_price_id:
+        items.append({"price": plan_cfg.metered_price_id})
+
+    if not items:
+        raise ValueError("Plan has no associated Stripe prices")
 
     customer_id = await ensure_stripe_customer(db, user)
 
     _init_stripe()
     subscription = stripe.Subscription.create(
         customer=customer_id,
-        items=[{"price": plan_cfg.price_id}],
+        items=items,
         metadata={"user_id": str(user.id), "plan": plan},
     )
 
@@ -198,11 +220,11 @@ async def change_subscription(
 
     _init_stripe()
 
-    if new_plan == "free":
-        # Downgrade to free = cancel subscription
+    if new_plan == "flex":
+        # Downgrade to flex = cancel subscription
         stripe.Subscription.cancel(user.stripe_subscription_id)
-        await _apply_plan_change(db, user, "free", None)
-        return {"subscription_id": None, "status": "canceled", "plan": "free"}
+        await _apply_plan_change(db, user, "flex", None)
+        return {"subscription_id": None, "status": "canceled", "plan": "flex"}
 
     if not plan_cfg.price_id:
         raise ValueError("Cannot switch to plan without price ID")
@@ -237,9 +259,9 @@ async def cancel_subscription(
 
     _init_stripe()
     stripe.Subscription.cancel(user.stripe_subscription_id)
-    await _apply_plan_change(db, user, "free", None)
+    await _apply_plan_change(db, user, "flex", None)
 
-    return {"status": "canceled", "plan": "free"}
+    return {"status": "canceled", "plan": "flex"}
 
 
 # ---------- Webhook processing --------------------------------------------
@@ -324,7 +346,7 @@ async def _handle_subscription_change(
 
     status = subscription.get("status")
     if status in ("canceled", "unpaid", "incomplete_expired"):
-        await _apply_plan_change(db, user, "free", None)
+        await _apply_plan_change(db, user, "flex", None)
     elif status == "active":
         # Determine plan from price
         items = subscription.get("items", {}).get("data", [])
@@ -351,7 +373,8 @@ async def _handle_payment_failed(
 def _price_id_to_plan(price_id: str) -> str | None:
     """Reverse-lookup plan name from Stripe price ID."""
     for plan_name, cfg in PLANS.items():
-        if cfg.price_id and cfg.price_id == price_id:
+        if (cfg.price_id and cfg.price_id == price_id) or \
+           (cfg.metered_price_id and cfg.metered_price_id == price_id):
             return plan_name
     return None
 
@@ -386,3 +409,40 @@ async def _apply_plan_change(
         user.id, plan, plan_cfg.monthly_limit, plan_cfg.rate_per_sec,
         subscription_id,
     )
+
+
+# ---------- Stripe Billing Meter usage reporting --------------------------
+
+def report_meter_event(
+    customer_id: str,
+    value: int = 1,
+) -> None:
+    """Report a usage event to the Stripe Billing Meter.
+
+    Called per API request for:
+      - Flex plan: every request (pure usage-based)
+      - Light/Pro/Max: only overage requests (beyond monthly_limit)
+
+    Uses the meter event_name configured in Stripe dashboard.
+    The meter aggregates events per billing period; Stripe calculates
+    the charge based on the metered price attached to the subscription.
+    """
+    if not settings.stripe_meter_event_name or not customer_id:
+        return
+
+    _init_stripe()
+    try:
+        stripe.billing.MeterEvent.create(
+            event_name=settings.stripe_meter_event_name,
+            payload={
+                "stripe_customer_id": customer_id,
+                "value": str(value),
+            },
+        )
+    except Exception:
+        # Non-blocking: don't fail the API request if meter reporting fails
+        logger.warning(
+            "Failed to report meter event for customer %s",
+            customer_id,
+            exc_info=True,
+        )

@@ -17,10 +17,17 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    # Recurring (base fee) price IDs
     stripe_light_price_id: str = ""
     stripe_pro_price_id: str = ""
     stripe_max_price_id: str = ""
-    stripe_overage_price_id: str = ""  # metered price for overage billing
+    # Metered (usage) price IDs — one per plan
+    stripe_flex_metered_price_id: str = ""
+    stripe_light_metered_price_id: str = ""
+    stripe_pro_metered_price_id: str = ""
+    stripe_max_metered_price_id: str = ""
+    # Stripe Billing Meter event name
+    stripe_meter_event_name: str = "api_request"
 
     # Logging
     log_level: str = "INFO"

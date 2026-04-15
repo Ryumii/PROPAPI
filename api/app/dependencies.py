@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.database import AsyncSession, get_db
 from app.models.auth import ApiKey
 from app.services.rate_limiter import RateLimitResult, get_rate_limiter
-from app.services.stripe_service import get_plan_config
+from app.services.stripe_service import get_plan_config, report_meter_event
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +80,44 @@ async def require_api_key(
 ) -> ApiKey:
     """Authenticate + enforce rate limits.  Injects rate-limit headers."""
     limiter = get_rate_limiter()
-    rl: RateLimitResult = await limiter.check(
+
+    try:
+        plan_cfg = get_plan_config(api_key.plan)
+    except ValueError:
+        plan_cfg = None
+
+    # Flex plan: no monthly limit, pure usage-based (meter every request)
+    is_flex = plan_cfg is not None and plan_cfg.monthly_limit == 0
+
+    if is_flex:
+        # Only enforce per-second rate limit, skip monthly
+        rl: RateLimitResult = await limiter.check(
+            key_prefix=api_key.key_prefix,
+            rate_per_sec=api_key.rate_per_sec,
+            monthly_limit=999_999_999,  # effectively unlimited
+        )
+        request.state.rate_limit_headers = rl.headers
+
+        if not rl.allowed:
+            raise HTTPException(
+                status_code=429,
+                detail={"code": "RATE_LIMITED", "message": "レートリミットを超過しました"},
+                headers=rl.headers,
+            )
+
+        # Report every request to Stripe meter
+        if api_key.user and api_key.user.stripe_customer_id:
+            report_meter_event(api_key.user.stripe_customer_id)
+
+        return api_key
+
+    # Light / Pro / Max: monthly limit + overage billing
+    rl = await limiter.check(
         key_prefix=api_key.key_prefix,
         rate_per_sec=api_key.rate_per_sec,
         monthly_limit=api_key.monthly_limit,
     )
 
-    # Store headers for the response middleware to pick up
     request.state.rate_limit_headers = rl.headers
 
     if not rl.allowed:
@@ -98,20 +129,19 @@ async def require_api_key(
                 headers=rl.headers,
             )
 
-        # Monthly quota exceeded — check if overage is allowed
-        try:
-            plan_cfg = get_plan_config(api_key.plan)
-        except ValueError:
-            plan_cfg = None
-
+        # Monthly quota exceeded — allow through as overage
         if plan_cfg and plan_cfg.overage_price_yen > 0:
-            # Paid plan: allow through as overage (will be billed)
             rl.headers["X-Overage"] = "true"
             rl.headers["X-Overage-Price-Yen"] = str(plan_cfg.overage_price_yen)
             request.state.rate_limit_headers = rl.headers
+
+            # Report overage to Stripe meter
+            if api_key.user and api_key.user.stripe_customer_id:
+                report_meter_event(api_key.user.stripe_customer_id)
+
             return api_key
 
-        # Free plan: hard block
+        # No overage allowed: hard block
         raise HTTPException(
             status_code=429,
             detail={"code": "QUOTA_EXCEEDED", "message": "月間リクエスト上限を超過しました"},
