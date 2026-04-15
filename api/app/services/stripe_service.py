@@ -42,6 +42,12 @@ def _build_plans() -> dict[str, PlanConfig]:
             rate_per_sec=10,
             price_id="",
         ),
+        "professional": PlanConfig(
+            name="Professional",
+            monthly_limit=50_000,
+            rate_per_sec=50,
+            price_id=settings.stripe_growth_price_id,
+        ),
         "growth": PlanConfig(
             name="Growth",
             monthly_limit=50_000,
