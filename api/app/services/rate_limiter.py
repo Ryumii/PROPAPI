@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimitResult:
-    __slots__ = ("allowed", "remaining_second", "remaining_month", "monthly_limit", "rate_per_sec", "retry_after")
+    __slots__ = ("allowed", "remaining_second", "remaining_month", "monthly_limit", "rate_per_sec", "retry_after", "degraded")
 
     def __init__(
         self,
@@ -30,6 +30,7 @@ class RateLimitResult:
         monthly_limit: int = 0,
         rate_per_sec: int = 0,
         retry_after: int | None = None,
+        degraded: bool = False,
     ) -> None:
         self.allowed = allowed
         self.remaining_second = remaining_second
@@ -37,6 +38,7 @@ class RateLimitResult:
         self.monthly_limit = monthly_limit
         self.rate_per_sec = rate_per_sec
         self.retry_after = retry_after
+        self.degraded = degraded
 
     @property
     def headers(self) -> dict[str, str]:
@@ -80,14 +82,15 @@ class RateLimiter:
             sec_count: int = results[0]
             month_count: int = results[2]
         except Exception:
-            # Redis down → allow (open policy)
-            logger.warning("Rate limiter Redis error — allowing request", exc_info=True)
+            # Redis down → allow but mark as degraded (caller decides policy)
+            logger.warning("Rate limiter Redis error — degraded mode", exc_info=True)
             return RateLimitResult(
                 allowed=True,
                 remaining_second=rate_per_sec,
                 remaining_month=monthly_limit,
                 monthly_limit=monthly_limit,
                 rate_per_sec=rate_per_sec,
+                degraded=True,
             )
 
         if sec_count > rate_per_sec:

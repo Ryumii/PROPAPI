@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import settings, validate_settings
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.batch import router as batch_router
@@ -12,12 +12,14 @@ from app.routers.health import router as health_router
 from app.routers.inspect import router as inspect_router
 from app.routers.zoning import router as zoning_router
 
+validate_settings()
+
 app = FastAPI(
-    title="REAPI",
+    title="PropAPI",
     description="土地調査統合 API プラットフォーム",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    version="1.0.0",
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
 )
 
 app.add_middleware(

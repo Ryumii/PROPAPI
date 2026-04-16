@@ -36,6 +36,9 @@ crash.log
 *.pem
 *.key
 
+# Ad-hoc helper scripts (may contain credentials)
+_*.py
+
 # IDE
 .vscode/*
 !.vscode/settings.json

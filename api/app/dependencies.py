@@ -105,7 +105,7 @@ async def require_api_key(
                 headers=rl.headers,
             )
 
-        # Report every request to Stripe meter
+        # Report every request to Stripe meter (Flex always meters)
         if api_key.user and api_key.user.stripe_customer_id:
             report_meter_event(api_key.user.stripe_customer_id)
 
@@ -119,6 +119,14 @@ async def require_api_key(
     )
 
     request.state.rate_limit_headers = rl.headers
+
+    # Redis degraded: paid plans fail-closed to prevent billing gaps
+    if rl.degraded:
+        logger.warning("Redis degraded — blocking paid plan request for key %s", api_key.key_prefix)
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "SERVICE_DEGRADED", "message": "レート制限サービスが一時的に利用できません。しばらくお待ちください。"},
+        )
 
     if not rl.allowed:
         # Per-second rate limit always blocks

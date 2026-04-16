@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
-from app.database import AsyncSession, get_db
+from app.database import AsyncSession, async_session, get_db
 from app.dependencies import AuthenticatedKey
 from app.schemas.batch import (
     BatchItem,
@@ -31,7 +31,7 @@ from app.schemas.school_district import SchoolDistrictInfo, SchoolDistrictRespon
 from app.schemas.zoning import ZoningResponse
 from app.services.billing import record_usage
 from app.services.geocoder import geocode
-from app.services.scoring import _level_for_score, calculate_scores
+from app.services.scoring import _level_for_score, calculate_scores, flood_depth_m
 from app.services.spatial import spatial_query
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ async def _process_item(
                 flood=FloodDetail(
                     risk_level=_level_for_score(scores.flood_score),
                     risk_score=scores.flood_score,
-                    depth_m=sq.flood.depth_rank if sq.flood else None,
+                    depth_m=flood_depth_m(sq.flood.depth_rank) if sq.flood else None,
                     depth_range=sq.flood.depth_range if sq.flood else None,
                     return_period_years=sq.flood.return_period if sq.flood else None,
                     river_name=sq.flood.river_name if sq.flood else None,
@@ -217,7 +217,9 @@ async def batch_inspect(
 
     async def _with_sem(item: BatchItem) -> BatchResultItem:
         async with sem:
-            return await _process_item(item, body, db)
+            # Each worker gets its own session to avoid shared-state corruption
+            async with async_session() as worker_db:
+                return await _process_item(item, body, worker_db)
 
     results = await asyncio.gather(*[_with_sem(item) for item in body.items])
 
@@ -225,15 +227,19 @@ async def batch_inspect(
     failed = len(results) - succeeded
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
-    background_tasks.add_task(
-        record_usage,
-        db,
-        api_key_id=api_key.id,
-        endpoint="/v1/batch",
-        request_address=f"batch:{len(body.items)}items",
-        response_status=200,
-        latency_ms=elapsed_ms,
-    )
+    # Usage log: use independent session for background task
+    async def _log_usage() -> None:
+        async with async_session() as log_db:
+            await record_usage(
+                log_db,
+                api_key_id=api_key.id,
+                endpoint="/v1/batch",
+                request_address=f"batch:{len(body.items)}items",
+                response_status=200,
+                processing_time_ms=elapsed_ms,
+            )
+
+    background_tasks.add_task(_log_usage)
 
     return BatchResponse(
         job_id=job_id,

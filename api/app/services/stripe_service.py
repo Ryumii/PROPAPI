@@ -230,12 +230,40 @@ async def change_subscription(
         raise ValueError("Cannot switch to plan without price ID")
 
     sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+
+    # Build update items: match recurring and metered by type
+    existing_items = sub["items"]["data"]
+    update_items: list[dict[str, str]] = []
+
+    # Find existing recurring and metered items
+    recurring_item_id = None
+    metered_item_id = None
+    for item in existing_items:
+        price = item.get("price", {})
+        if price.get("recurring", {}).get("usage_type") == "metered":
+            metered_item_id = item["id"]
+        else:
+            recurring_item_id = item["id"]
+
+    # Update or add recurring item
+    if recurring_item_id:
+        update_items.append({"id": recurring_item_id, "price": plan_cfg.price_id})
+    else:
+        update_items.append({"price": plan_cfg.price_id})
+
+    # Update or add metered item
+    if plan_cfg.metered_price_id:
+        if metered_item_id:
+            update_items.append({"id": metered_item_id, "price": plan_cfg.metered_price_id})
+        else:
+            update_items.append({"price": plan_cfg.metered_price_id})
+    elif metered_item_id:
+        # New plan has no metered price: remove the old metered item
+        update_items.append({"id": metered_item_id, "deleted": True})
+
     stripe.Subscription.modify(
         user.stripe_subscription_id,
-        items=[{
-            "id": sub["items"]["data"][0]["id"],
-            "price": plan_cfg.price_id,
-        }],
+        items=update_items,
         metadata={"plan": new_plan},
         proration_behavior="create_prorations",
     )

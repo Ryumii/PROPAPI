@@ -22,7 +22,7 @@ from app.schemas.hazard import (
     TsunamiDetail,
 )
 from app.services.geocoder import geocode
-from app.services.scoring import _level_for_score, calculate_scores
+from app.services.scoring import _level_for_score, calculate_scores, flood_depth_m
 from app.services.spatial import spatial_query
 
 router = APIRouter()
@@ -54,7 +54,7 @@ async def get_hazard(
         flood=FloodDetail(
             risk_level=_level_for_score(scores.flood_score),
             risk_score=scores.flood_score,
-            depth_m=sq.flood.depth_rank if sq.flood else None,
+            depth_m=flood_depth_m(sq.flood.depth_rank) if sq.flood else None,
             depth_range=sq.flood.depth_range if sq.flood else None,
             return_period_years=sq.flood.return_period if sq.flood else None,
             river_name=sq.flood.river_name if sq.flood else None,

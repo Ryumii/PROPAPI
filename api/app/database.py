@@ -8,7 +8,7 @@ from app.config import settings
 
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.api_debug,
+    echo=settings.api_debug and not settings.is_production,
     pool_size=20,
     max_overflow=10,
     pool_pre_ping=True,

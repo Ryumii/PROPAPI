@@ -29,6 +29,22 @@ RISK_WEIGHTS: dict[str, float] = {
     "tsunami": 0.30,
 }
 
+# Midpoint depth (meters) for each flood depth rank (A31/A31b normalised 0-5).
+_FLOOD_DEPTH_M: dict[int, float] = {
+    0: 0.0,
+    1: 0.25,   # 0.5m未満
+    2: 1.75,   # 0.5m以上3m未満
+    3: 4.0,    # 3m以上5m未満
+    4: 7.5,    # 5m以上10m未満
+    5: 12.0,   # 10m以上
+}
+
+
+def flood_depth_m(depth_rank: int) -> float:
+    """Convert a normalised flood depth rank to an approximate midpoint depth in metres."""
+    return _FLOOD_DEPTH_M.get(depth_rank, 0.0)
+
+
 LEVEL_LABELS: dict[int, str] = {
     0: "none",
     1: "very_low",

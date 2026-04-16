@@ -39,6 +39,12 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# Dedicated secret for JWT signing — NOT derived from resource naming
+resource "random_password" "api_secret" {
+  length  = 48
+  special = false
+}
+
 locals {
   suffix = random_id.suffix.hex
   tags = {
@@ -213,7 +219,7 @@ resource "azurerm_container_app" "api" {
 
   secret {
     name  = "api-secret-key"
-    value = random_id.suffix.hex
+    value = random_password.api_secret.result
   }
 
   ingress {
@@ -260,3 +266,18 @@ resource "azurerm_container_app" "api" {
     }
   }
 }
+
+# ── Azure Data Factory + Managed Airflow (TASK-061) ──────────
+# Uncomment when ready to deploy (~$350-400/month additional cost).
+# For lower-cost alternative, consider Container Apps Jobs.
+#
+# module "airflow" {
+#   source = "./modules/airflow"
+#
+#   resource_group_name        = azurerm_resource_group.main.name
+#   location                   = azurerm_resource_group.main.location
+#   suffix                     = local.suffix
+#   tags                       = local.tags
+#   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+#   database_url_sync          = "postgresql://propadmin:${random_password.pg_password.result}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/propapi?sslmode=require"
+# }
